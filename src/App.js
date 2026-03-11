@@ -1,24 +1,24 @@
-import logo from './logo.svg';
-import './App.css';
+import React from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Header from "./components/Header";
+import OnlineStore from "./components/OnlineStore";
+import ContactUs from "./components/ContactUs";
+import NewCollection from "./components/NewCollection";
+import Auth from "./components/Auth";
+import { PointsManagement } from "./components/Points";
 
 function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <Router>
+      <Header />
+      <Routes>
+        <Route path="/auth" element={<Auth />} />
+        <Route path="/store" element={<OnlineStore />} />
+        <Route path="/" element={<NewCollection />} />
+        <Route path="/contact" element={<ContactUs />} />
+        <Route path="/points" element={<PointsManagement />} />
+      </Routes>
+    </Router>
   );
 }
 
