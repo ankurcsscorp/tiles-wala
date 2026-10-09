@@ -6,6 +6,7 @@ import ContactUs from "./components/ContactUs";
 import NewCollection from "./components/NewCollection";
 import Auth from "./components/Auth";
 import { PointsManagement } from "./components/Points";
+import Footer from "./components/footer/Footer";
 
 function App() {
   return (
@@ -13,11 +14,11 @@ function App() {
       <Header />
       <Routes>
         <Route path="/auth" element={<Auth />} />
-        <Route path="/store" element={<OnlineStore />} />
         <Route path="/" element={<NewCollection />} />
         <Route path="/contact" element={<ContactUs />} />
         <Route path="/points" element={<PointsManagement />} />
       </Routes>
+      <Footer/>
     </Router>
   );
 }

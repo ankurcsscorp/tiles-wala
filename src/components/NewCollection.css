@@ -1,0 +1,70 @@
+.collection-container {
+    padding: 50px;
+  }
+  
+  .collection-title {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+  
+  .collection-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 25px;
+  }
+  
+  .collection-card {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    transition: 0.3s;
+  }
+  
+  .collection-card:hover {
+    transform: translateY(-6px);
+  }
+  
+  .collection-images {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 2px;
+  }
+  
+  .collection-images img {
+    width: 100%;
+    height: 220px;
+    object-fit: cover;
+  }
+  
+  .collection-images .full-width-image {
+    grid-column: span 2;
+    width: 100%;
+  }
+  
+  .collection-info {
+    padding: 15px;
+  }
+  
+  .pdf-button {
+    margin-top: 40px;
+    text-align: center;
+  }
+  
+  .pdf-button a {
+    padding: 12px 25px;
+    background: #2c3e50;
+    color: white;
+    border-radius: 8px;
+    text-decoration: none;
+  }
+  
+  @media (max-width: 768px) {
+    .collection-container {
+      padding: 20px;
+    }
+    
+    .collection-grid {
+      grid-template-columns: 1fr;
+    }
+  }

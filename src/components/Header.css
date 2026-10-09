@@ -1,0 +1,82 @@
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 40px;
+    background: #2c3e50;
+    color: white;
+    position: relative;
+  }
+  
+  .logo {
+    font-size: 20px;
+    font-weight: bold;
+  }
+  
+  .nav-links {
+    display: flex;
+    gap: 20px;
+  }
+  
+  .nav-links a {
+    color: white;
+    text-decoration: none;
+  }
+  
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+  }
+  
+  .header input {
+    padding: 6px;
+  }
+  
+  .signin-btn {
+    padding: 6px 12px;
+    cursor: pointer;
+  }
+  
+  .hamburger {
+    display: none;
+    font-size: 24px;
+    cursor: pointer;
+  }
+  
+  /* 🔥 Mobile Responsive */
+  @media (max-width: 768px) {
+    .nav-links {
+      position: absolute;
+      top: 60px;
+      left: 0;
+      background: #34495e;
+      width: 100%;
+      flex-direction: column;
+      text-align: center;
+      display: none;
+      padding: 20px 0;
+    }
+  
+    .nav-links.active {
+      display: flex;
+    }
+  
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .signin-btn {
+      padding: 4px 8px;
+      font-size: 12px;
+    }
+
+    .hamburger {
+      display: block;
+    }
+  }
+
+  
+

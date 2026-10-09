@@ -1,0 +1,87 @@
+[
+  {
+    "id": 1,
+    "name": "Marvilla Blue",
+    "finish": "Book Match Glossy",
+    "size": "600x1200",
+    "images": ["/images/1.1.jpg", "/images/1.2.jpg", "/images/1.3.jpg", "/images/1.3.jpg","/images/1.3.jpg"]
+  },
+  {
+    "id": 2,
+    "name": "Boston White",
+    "finish": "Endless Glossy",
+    "size": "600x1200",
+    "images": ["/images/2.1.jpg", "/images/2.2.jpg", "/images/2.3.jpg", "/images/2.3.jpg", "/images/2.3.jpg"]
+  },
+  {
+    "id": 3,
+    "name": "Costa Blue",
+    "finish": "Endless Glossy Gold",
+    "size": "600x1200",
+    "images": ["/images/3.1.jpg", "/images/3.2.jpg", "/images/3.3.jpg","/images/3.2.jpg", "/images/3.4.jpg"]
+  },
+  {
+    "id": 4,
+    "name": "Vivan Aqua Gold",
+    "finish": "Endless Glossy Gold",
+    "size": "600x1200",
+    "images": ["/images/4.1.jpg", "/images/4.2.jpg", "/images/4.3.jpg", "/images/4.4.jpg", "/images/4.5.jpg"]
+  },
+  {
+    "id": 5,
+    "name": "Ciroc Green",
+    "finish": "Glossy",
+    "size": "600x1200",
+    "images": ["/images/5.1.jpg", "/images/5.2.jpg", "/images/5.3.jpg", "/images/5.4.jpg", "/images/5.5.jpg"]
+  },
+  {
+    "id": 6,
+    "name": "Montreux Gris",
+    "finish": "MAT Carvin",
+    "size": "600x1200",
+    "images": ["/images/6.1.jpg", "/images/6.2.jpg", "/images/6.3.jpg", "/images/6.4.jpg", "/images/6.5.jpg"]
+  },
+  {
+    "id": 7,
+    "name": "Monera Grey",
+    "finish": "MAT Carvin",
+    "size": "600x1200",
+    "images": ["/images/7.1.jpg", "/images/7.2.jpg", "/images/7.3.jpg", "/images/7.4.jpg", "/images/7.5.jpg"]
+  },
+  {
+    "id": 8,
+    "name": "Sonata Pearl",
+    "finish": "Glossy",
+    "size": "600x1200",
+    "images": ["/images/8.1.jpg", "/images/8.2.jpg", "/images/8.3.jpg", "/images/8.4.jpg", "/images/8.5.jpg"]
+  },
+  {
+    "id": 9,
+    "name": "Norwel Grey",
+    "finish": "Glossy",
+    "size": "600x1200",
+    "images": ["/images/9.1.jpg", "/images/9.2.jpg", "/images/9.3.jpg", "/images/9.4.jpg", "/images/9.5.jpg"]
+  },
+  {
+    "id": 10,
+    "name": "Pure White",
+    "finish": "Glossy",
+    "size": "600x1200",
+    "images": ["/images/10.1.jpg", "/images/10.1.jpg","/images/10.1.jpg","/images/10.1.jpg","/images/10.2.jpg"]
+  },
+  {
+    "id": 11,
+    "name": "Marigold flower",
+    "finish": "Super High Glossy",
+    "size": "600x1200",
+    "images": ["/images/11.1.jpg", "/images/11.2.jpg", "/images/11.3.jpg", "/images/11.4.jpg", "/images/11.5.jpg"]
+  },
+  {
+    "id": 12,
+    "name": "Z- Balck",
+    "finish": "Special Super High Gloss",
+    "size": "600x1200",
+    "images": ["/images/12.1.jpg", "/images/12.1.jpg","/images/12.1.jpg", "/images/12.3.jpg", "/images/12.2.jpg"]
+  }
+]
+
