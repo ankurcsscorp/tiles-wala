@@ -30,15 +30,18 @@ const Footer = () => {
         <Grid container spacing={4}>
           {/* Column 1: Company Information */}
           <Grid item xs={12} sm={6} md={3}>
-            <img src="/path-to-logo.png" alt="Tilewala Logo" style={{ maxWidth: "150px", marginBottom: "16px" }} />
-            <Typography variant="body2" sx={{ mb: 1 }}>
-              Address: Unit 13, Adrienne Business Centre, Adrienne Ave, Southall UB1 2FJ, United Kingdom
+            <img src="/images/brandlogo.png" alt="Tilewala Logo" style={{ maxWidth: "80px", marginBottom: "16px", borderRadius: "50%" }} />
+            <Typography variant="body2" sx={{ mb: 1 , fontWeight:"bold"}}>
+              A & A HOME DECOR
             </Typography>
             <Typography variant="body2" sx={{ mb: 1 }}>
-              <a href="tel:+447809670743" style={{ color: "#f5f5f5", textDecoration: "none" }}>Phone: 44 7809 670743</a>
+              Address: Madhul Chowk, Mahua, Bihar, India - 844122
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              <a href="tel:+447809670743" style={{ color: "#f5f5f5", textDecoration: "none" }}>Phone: +91 8109961022</a>
             </Typography>
             <Typography variant="body2" sx={{ mb: 2 }}>
-              <a href="mailto:info@tilewala.com" style={{ color: "#f5f5f5", textDecoration: "none" }}>Email: info@tilewala.com</a>
+              <a href="mailto:info@tilewala.com" style={{ color: "#f5f5f5", textDecoration: "none" }}>Email: ahomedecor01@gmail.com</a>
             </Typography>
             <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
               <TextField
@@ -118,7 +121,7 @@ const Footer = () => {
         {/* Bottom Section */}
         <Divider sx={{ my: 4, borderColor: "rgba(255, 255, 255, 0.2)" }} />
         <Typography variant="body2" sx={{ textAlign: "left" }}>
-          © 2026, tilewala. All rights reserved.
+          © 2026, tilewala. A & A Home Decor. All rights reserved.
         </Typography>
       </Container>
     </Box>

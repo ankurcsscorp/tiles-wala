@@ -77,6 +77,23 @@
       display: block;
     }
   }
+  .nav-links a {
+    text-decoration: none;
+    color: #ffffff; /* Default link color */
+    padding: 8px 16px;
+    border-radius: 4px;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+  
+  .nav-links a:hover {
+    background-color: rgba(255, 255, 255, 0.1); /* Hover effect */
+  }
+  
+  .nav-links a.active-link {
+    background-color: #ffffff; /* Active link background */
+    color: #405873; /* Active link text color */
+    font-weight: bold;
+  }
 
   
 

@@ -7,6 +7,8 @@ import NewCollection from "./components/NewCollection";
 import Auth from "./components/Auth";
 import { PointsManagement } from "./components/Points";
 import Footer from "./components/footer/Footer";
+import EnquiryForm from "./components/Enquiry/EnquiryForm";
+import EnquiryTable from "./components/Enquiry/EnquiryTable";
 
 function App() {
   return (
@@ -16,7 +18,9 @@ function App() {
         <Route path="/auth" element={<Auth />} />
         <Route path="/" element={<NewCollection />} />
         <Route path="/contact" element={<ContactUs />} />
+        <Route path="/enquiry" element={<EnquiryForm />} />
         <Route path="/points" element={<PointsManagement />} />
+        <Route path="/enquiry-management" element={<EnquiryTable />} />
       </Routes>
       <Footer/>
     </Router>
