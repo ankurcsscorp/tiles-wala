@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import axios from "axios";
+import api from "../../api";
 import {
   Box,
   Paper,
@@ -62,7 +62,7 @@ const EnquiryTable = () => {
         setLoading(true);
         setError("");
 
-        const response = await axios.get(API_URL);
+        const response = await api.get(API_URL);
         const result = response.data;
         console.log("Fetched enquiries:", result);
 
@@ -229,7 +229,7 @@ const EnquiryTable = () => {
       setSaving(true);
       setEditError("");
 
-      const response = await axios.patch(`${API_URL}/${editingId}`, {
+      const response = await api.patch(`${API_URL}/${editingId}`, {
         remark: editedRow.remark ?? null,
       });
       const updatedEnquiry = response.data?.enquiry;
