@@ -42,6 +42,7 @@ const EnquiryTable = () => {
 
   // Global search
   const [globalSearch, setGlobalSearch] = useState("");
+  const [dateSortColumn, setDateSortColumn] = useState("created_at");
   const [dateSortOrder, setDateSortOrder] = useState("desc");
 
   // Pagination
@@ -94,19 +95,35 @@ const EnquiryTable = () => {
     const allKeys = [
       ...new Set(data.flatMap((row) => Object.keys(row))),
     ];
-
-    // Keep ID available for editing but don't show it as a normal column.
-    return allKeys.filter(
-      (key) =>
-        key !== "id" &&
-        !allKeys.includes(`${key}_internal`)
+    const visibleKeys = allKeys.filter(
+      (key) => key !== "id" && !allKeys.includes(`${key}_internal`)
     );
+
+    const columnOrder = [
+      "customer_name",
+      "mobile",
+      "address",
+      "required_area",
+      "purchase_plan",
+      "remark",
+      "created_at",
+      "updated_at",
+    ];
+
+    return [
+      ...columnOrder,
+      ...visibleKeys.filter((key) => !columnOrder.includes(key)),
+    ];
   }, [data]);
 
   // Friendly column labels
   const formatLabel = (key) => {
     if (key === "created_at") {
-      return "Create /Update Date";
+      return "Created At";
+    }
+
+    if (key === "updated_at") {
+      return "Updated At";
     }
 
     return key
@@ -120,7 +137,7 @@ const EnquiryTable = () => {
       return "—";
     }
 
-    if (column === "created_at") {
+    if (column === "created_at" || column === "updated_at") {
       const date = new Date(value);
       if (Number.isNaN(date.getTime())) {
         return String(value);
@@ -162,11 +179,11 @@ const EnquiryTable = () => {
   }, [data, columns, globalSearch]);
 
   const sortedData = useMemo(() => {
-    if (!columns.includes("created_at")) return filteredData;
+    if (!columns.includes(dateSortColumn)) return filteredData;
 
     return [...filteredData].sort((first, second) => {
-      const firstTime = Date.parse(first.created_at);
-      const secondTime = Date.parse(second.created_at);
+      const firstTime = Date.parse(first[dateSortColumn]);
+      const secondTime = Date.parse(second[dateSortColumn]);
       const firstValid = Number.isFinite(firstTime);
       const secondValid = Number.isFinite(secondTime);
 
@@ -179,12 +196,12 @@ const EnquiryTable = () => {
         ? firstTime - secondTime
         : secondTime - firstTime;
     });
-  }, [filteredData, columns, dateSortOrder]);
+  }, [filteredData, columns, dateSortColumn, dateSortOrder]);
 
   // Reset to the first page whenever search or sort order changes.
   useEffect(() => {
     setPage(0);
-  }, [globalSearch, dateSortOrder]);
+  }, [globalSearch, dateSortColumn, dateSortOrder]);
 
   // Paginate the filtered results
   const visibleRows = useMemo(() => {
@@ -202,10 +219,14 @@ const EnquiryTable = () => {
     setPage(0);
   };
 
-  const toggleDateSortOrder = () => {
-    setDateSortOrder((current) =>
-      current === "asc" ? "desc" : "asc"
-    );
+  const toggleDateSortOrder = (column) => {
+    if (column !== dateSortColumn) {
+      setDateSortColumn(column);
+      setDateSortOrder("desc");
+      return;
+    }
+
+    setDateSortOrder((current) => (current === "asc" ? "desc" : "asc"));
   };
 
   // Editing handlers
@@ -370,17 +391,25 @@ const EnquiryTable = () => {
               {filteredData.length} of {data.length} enquiries
             </Typography>
 
-            {columns.includes("created_at") && (
-              <Button
-                size="small"
-                startIcon={<SwapVertIcon />}
-                onClick={toggleDateSortOrder}
-                sx={{ display: { xs: "inline-flex", sm: "none" } }}
-                aria-label={`Change date sort to ${dateSortOrder === "asc" ? "newest first" : "oldest first"}`}
-              >
-                Sort: {dateSortOrder === "asc" ? "Oldest first" : "Newest first"}
-              </Button>
-            )}
+            {["created_at", "updated_at"]
+              .filter((column) => columns.includes(column))
+              .map((column) => {
+                const sortOrder =
+                  column === dateSortColumn ? dateSortOrder : "desc";
+
+                return (
+                  <Button
+                    key={column}
+                    size="small"
+                    startIcon={<SwapVertIcon />}
+                    onClick={() => toggleDateSortOrder(column)}
+                    sx={{ display: { xs: "inline-flex", sm: "none" } }}
+                    aria-label={`Sort by ${formatLabel(column)}: ${sortOrder === "asc" ? "oldest first" : "newest first"}`}
+                  >
+                    {formatLabel(column)}: {sortOrder === "asc" ? "Oldest first" : "Newest first"}
+                  </Button>
+                );
+              })}
 
             {globalSearch.trim() && (
               <Button
@@ -511,11 +540,11 @@ const EnquiryTable = () => {
                           whiteSpace: "nowrap",
                         }}
                       >
-                        {column === "created_at" ? (
+                        {column === "created_at" || column === "updated_at" ? (
                           <TableSortLabel
-                            active
+                            active={dateSortColumn === column}
                             direction={dateSortOrder}
-                            onClick={toggleDateSortOrder}
+                            onClick={() => toggleDateSortOrder(column)}
                           >
                             {formatLabel(column)}
                           </TableSortLabel>

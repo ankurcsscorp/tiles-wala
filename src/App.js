@@ -11,11 +11,12 @@ import OnlineStore from "./components/OnlineStore";
 import ContactUs from "./components/ContactUs";
 import NewCollection from "./components/NewCollection";
 import Auth from "./components/Auth";
-import { PointsManagement } from "./components/Points";
 import Footer from "./components/footer/Footer";
 import EnquiryForm from "./components/Enquiry/EnquiryForm";
 import EnquiryTable from "./components/Enquiry/EnquiryTable";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import SaleBonusManagement from "./components/sales/SaleBonusManagement";
+import SaleBonus from "./components/sales/SaleBonus";
 
 const ProtectedRoute = ({ allowedUserTypes, children }) => {
   const { isAuthenticated, user } = useAuth();
@@ -47,11 +48,12 @@ function App() {
           <Route path="/" element={<NewCollection />} />
           <Route path="/contact" element={<ContactUs />} />
           <Route path="/enquiry" element={<EnquiryForm />} />
+          <Route path="/sales-bonus" element={<SaleBonus />} />
           <Route
-            path="/points"
+            path="/sales-bonus-management"
             element={
               <ProtectedRoute allowedUserTypes={["admin"]}>
-                <PointsManagement />
+                <SaleBonusManagement />
               </ProtectedRoute>
             }
           />

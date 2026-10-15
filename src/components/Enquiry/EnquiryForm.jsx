@@ -99,11 +99,11 @@ const EnquiryForm = () => {
 
     try {
       const payload = {
-        customerName: formData.name.trim(),
+        customer_name: formData.name.trim(),
         mobile: formData.mobile.trim(),
         address: formData.address.trim(),
-        requiredArea: Number(formData.area),
-        purchasePlan: formData.purchasePlan,
+        required_area: Number(formData.area),
+        purchase_plan: formData.purchasePlan,
         remark: formData.remark.trim(),
       };
 

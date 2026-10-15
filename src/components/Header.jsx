@@ -41,21 +41,7 @@ const Header = () => {
         >
           New Collections
         </Link>
-        <Link
-          to="https://mybillbook.in/store/johnson_tiles_mahua"
-          target="blank"
-          onClick={() => setMenuOpen(false)}
-          className={location.pathname === "/online-store" ? "active-link" : ""}
-        >
-          Online Store
-        </Link>
-        <Link
-          to="/contact"
-          onClick={() => setMenuOpen(false)}
-          className={location.pathname === "/contact" ? "active-link" : ""}
-        >
-          Contact
-        </Link>
+
         <Link
           to="/enquiry"
           onClick={() => setMenuOpen(false)}
@@ -63,14 +49,22 @@ const Header = () => {
         >
           Enquiry
         </Link>
+
+        <Link
+            to="/sales-bonus"
+            onClick={() => setMenuOpen(false)}
+            className={location.pathname === "/sales-bonus" ? "active-link" : ""}
+          >
+            Sales Bonus
+          </Link>
         {isAdmin && (
           <>
           <Link
-            to="/points"
+            to="/sales-bonus-management"
             onClick={() => setMenuOpen(false)}
-            className={location.pathname === "/points" ? "active-link" : ""}
+            className={location.pathname === "/sales-bonus-management" ? "active-link" : ""}
           >
-            Points Management
+            Sales Bonus Management
           </Link>
           
           <Link
@@ -90,7 +84,16 @@ const Header = () => {
         >
           Enquiry Management
         </Link>
+        
         )}
+                <Link
+          to="https://mybillbook.in/store/johnson_tiles_mahua"
+          target="blank"
+          onClick={() => setMenuOpen(false)}
+          className={location.pathname === "/online-store" ? "active-link" : ""}
+        >
+          Online Store
+        </Link>
 
       </div>
 

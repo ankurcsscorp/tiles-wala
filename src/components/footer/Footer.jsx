@@ -43,20 +43,11 @@ const Footer = () => {
             <Typography variant="body2" sx={{ mb: 2 }}>
               <a href="mailto:info@tilewala.com" style={{ color: "#f5f5f5", textDecoration: "none" }}>Email: ahomedecor01@gmail.com</a>
             </Typography>
-            <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
-              <TextField
-                placeholder="Enter email"
-                variant="outlined"
-                size="small"
-                sx={{
-                  backgroundColor: "transparent",
-                  border: "1px solid #f5f5f5",
-                  borderRadius: "8px",
-                  input: { color: "#f5f5f5" },
-                  flex: 1,
-                }}
-              />
+            <Box sx={{ display: "flex", gap: 1, mb: 0 }}>
+             <Typography variant="body2" sx={{ mt: 1 , fontSize:14, fontWeight:"bold" }}>ahomedecor01@gmail.com</Typography>
               <Button
+                component={Link}
+                to="/contact"
                 variant="contained"
                 sx={{
                   backgroundColor: "#fff",
@@ -65,7 +56,7 @@ const Footer = () => {
                   textTransform: "none",
                 }}
               >
-                Subscribe
+                Coontact Us
               </Button>
             </Box>
             <Typography variant="body2" sx={{ mb: 1 }}>Follow Us</Typography>

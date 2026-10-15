@@ -9,8 +9,11 @@ const INITIAL_FORM_DATA = {
   password: "",
   confirmPassword: "",
   userType: "",
+  areaLocation: "",
   adminKey: "",
 };
+
+const MISTIRI_USER_TYPES = ["Tile Mistire", "Plumber Mistiri"];
 
 const getHomeForUserType = (userType) => {
   const normalizedUserType = userType?.toLowerCase();
@@ -20,11 +23,16 @@ const getHomeForUserType = (userType) => {
   return "/";
 };
 
-const Auth = () => {
+const Auth = ({
+  onSignupSuccess,
+  onCancel,
+  hideToggle = false,
+  initialMode = "login",
+}) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { login, signup } = useAuth();
-  const [isLogin, setIsLogin] = useState(true);
+  const [isLogin, setIsLogin] = useState(initialMode === "login");
   const [formData, setFormData] = useState(INITIAL_FORM_DATA);
   const [errors, setErrors] = useState({});
   const [submitError, setSubmitError] = useState("");
@@ -59,6 +67,14 @@ const Auth = () => {
       if (!formData.userType) {
         newErrors.userType = "User type is required";
       }
+      if (
+        MISTIRI_USER_TYPES.includes(formData.userType) &&
+        !formData.areaLocation.trim()
+      ) {
+        newErrors.areaLocation = "Area/Location is required";
+      } else if (formData.areaLocation.trim().length > 200) {
+        newErrors.areaLocation = "Area/Location must be 200 characters or fewer";
+      }
       if (formData.userType === "Admin" && !formData.adminKey.trim()) {
         newErrors.adminKey = "Admin key is required";
       }
@@ -82,15 +98,26 @@ const Auth = () => {
             mobile: formData.mobile.trim(),
             password: formData.password,
           })
-        : await signup({
-            name: formData.name.trim(),
-            mobile: formData.mobile.trim(),
-            password: formData.password,
-            userType: formData.userType,
-            ...(formData.userType === "Admin"
-              ? { adminKey: formData.adminKey }
-              : {}),
-          });
+        : await signup(
+            {
+              name: formData.name.trim(),
+              mobile: formData.mobile.trim(),
+              password: formData.password,
+              userType: formData.userType,
+              ...(MISTIRI_USER_TYPES.includes(formData.userType)
+                ? { areaLocation: formData.areaLocation.trim() }
+                : {}),
+              ...(formData.userType === "Admin"
+                ? { adminKey: formData.adminKey }
+                : {}),
+            },
+            { persistAuth: typeof onSignupSuccess !== "function" }
+          );
+
+      if (!isLogin && typeof onSignupSuccess === "function") {
+        onSignupSuccess(authenticatedUser);
+        return;
+      }
 
       const requestedPath = location.state?.from?.pathname;
       navigate(requestedPath || getHomeForUserType(authenticatedUser.userType), {
@@ -108,10 +135,20 @@ const Auth = () => {
   };
 
   const toggleMode = () => {
-    setIsLogin((previous) => !previous);
+    const nextMode = !isLogin;
+    setIsLogin(nextMode);
     setFormData(INITIAL_FORM_DATA);
     setErrors({});
     setSubmitError("");
+  };
+
+  const handleCancel = () => {
+    if (typeof onCancel === "function") {
+      onCancel();
+      return;
+    }
+
+    navigate(location.state?.from || -1);
   };
 
   return (
@@ -206,6 +243,26 @@ const Auth = () => {
                 )}
               </div>
 
+              {MISTIRI_USER_TYPES.includes(formData.userType) && (
+                <div className="form-group">
+                  <label htmlFor="auth-area-location">Area/Location</label>
+                  <input
+                    id="auth-area-location"
+                    type="text"
+                    name="areaLocation"
+                    autoComplete="address-level2"
+                    maxLength={200}
+                    value={formData.areaLocation}
+                    onChange={handleChange}
+                    placeholder="Enter area or location"
+                    required
+                  />
+                  {errors.areaLocation && (
+                    <span className="error">{errors.areaLocation}</span>
+                  )}
+                </div>
+              )}
+
               {formData.userType === "Admin" && (
                 <div className="form-group">
                   <label htmlFor="auth-admin-key">Admin Key</label>
@@ -240,19 +297,31 @@ const Auth = () => {
                 ? "Sign In"
                 : "Complete Sign Up"}
           </button>
+          {!isLogin && (
+            <button
+              type="button"
+              className="auth-cancel-btn"
+              onClick={handleCancel}
+              disabled={submitting}
+            >
+              Cancel
+            </button>
+          )}
         </form>
 
-        <p className="toggle-text">
-          {isLogin ? "Don't have an account? " : "Already have an account? "}
-          <button
-            type="button"
-            className="toggle-btn"
-            onClick={toggleMode}
-            disabled={submitting}
-          >
-            {isLogin ? "Sign Up" : "Sign In"}
-          </button>
-        </p>
+        {!hideToggle && (
+          <p className="toggle-text">
+            {isLogin ? "Don't have an account? " : "Already have an account? "}
+            <button
+              type="button"
+              className="toggle-btn"
+              onClick={toggleMode}
+              disabled={submitting}
+            >
+              {isLogin ? "Sign Up" : "Sign In"}
+            </button>
+          </p>
+        )}
       </div>
     </div>
   );

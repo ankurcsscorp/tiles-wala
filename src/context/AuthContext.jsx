@@ -69,8 +69,11 @@ export const AuthProvider = ({ children }) => {
     return saveAuth(response);
   };
 
-  const signup = async (details) => {
+  const signup = async (details, { persistAuth = true } = {}) => {
     const response = await api.post(`${AUTH_API_URL}/signup`, details);
+    if (!persistAuth) {
+      return normalizeAuthResponse(response).user;
+    }
     return saveAuth(response);
   };
 
