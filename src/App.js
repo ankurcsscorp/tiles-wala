@@ -48,7 +48,14 @@ function App() {
           <Route path="/" element={<NewCollection />} />
           <Route path="/contact" element={<ContactUs />} />
           <Route path="/enquiry" element={<EnquiryForm />} />
-          <Route path="/sales-bonus" element={<SaleBonus />} />
+          <Route
+            path="/sales-bonus"
+            element={
+              <ProtectedRoute allowedUserTypes={["admin", "salesperson", "tile mistire"]}>
+                <SaleBonus />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/sales-bonus-management"
             element={
