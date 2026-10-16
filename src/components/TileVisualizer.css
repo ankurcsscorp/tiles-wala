@@ -222,6 +222,73 @@
   font-size: 1.15rem;
 }
 
+.tile-visualizer-rotation-toggle {
+  position: absolute;
+  z-index: 3;
+  top: 16px;
+  right: 16px;
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 13px;
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  border-radius: 999px;
+  background: rgba(255, 253, 250, 0.9);
+  color: #38332e;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  box-shadow: 0 5px 18px rgba(37, 35, 31, 0.12);
+  backdrop-filter: blur(10px);
+}
+
+.tile-visualizer-rotation-toggle:hover {
+  background: #fff;
+  transform: translateY(-1px);
+}
+
+.tile-visualizer-rotation-toggle > span {
+  min-width: 12px;
+  color: var(--visualizer-accent);
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.tile-visualizer-zoom-toggle {
+  position: absolute;
+  z-index: 3;
+  top: 64px;
+  right: 16px;
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 13px;
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  border-radius: 999px;
+  background: rgba(255, 253, 250, 0.9);
+  color: #38332e;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  box-shadow: 0 5px 18px rgba(37, 35, 31, 0.12);
+  backdrop-filter: blur(10px);
+}
+
+.tile-visualizer-zoom-toggle:hover {
+  background: #fff;
+  transform: translateY(-1px);
+}
+
+.tile-visualizer-zoom-toggle > span {
+  color: var(--visualizer-accent);
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
 .tile-visualizer-stage canvas {
   display: block;
   width: 100%;
@@ -260,6 +327,16 @@
   min-height: 38px;
   padding: 0 10px;
   font-size: 0.72rem;
+}
+
+.tile-visualizer-stage:fullscreen .tile-visualizer-rotation-toggle {
+  top: 10px;
+  right: 150px;
+}
+
+.tile-visualizer-stage:fullscreen .tile-visualizer-zoom-toggle {
+  top: 58px;
+  right: 150px;
 }
 
 .tile-visualizer-live-dot {
@@ -486,6 +563,23 @@
 
   .tile-visualizer-stage {
     border-radius: 7px;
+  }
+
+  .tile-visualizer-rotation-toggle {
+    top: 10px;
+    right: 10px;
+    min-height: 36px;
+    gap: 6px;
+    padding: 0 10px;
+    font-size: 0.68rem;
+  }
+
+  .tile-visualizer-stage:fullscreen .tile-visualizer-rotation-toggle {
+    right: 128px;
+  }
+
+  .tile-visualizer-stage:fullscreen .tile-visualizer-zoom-toggle {
+    right: 128px;
   }
 
   .tile-visualizer-note {

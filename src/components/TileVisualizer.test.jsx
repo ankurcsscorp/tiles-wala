@@ -34,6 +34,14 @@ test("shows product specs and room and surface controls", () => {
 
   expect(screen.getByRole("heading", { name: "Marvilla Blue" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "View full screen" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Pause auto-rotate" })).toHaveAttribute(
+    "aria-pressed",
+    "true"
+  );
+  expect(screen.getByRole("button", { name: "Pause auto-zoom" })).toHaveAttribute(
+    "aria-pressed",
+    "true"
+  );
   expect(screen.getByLabelText("Room")).toHaveValue("living");
   expect(screen.getByRole("button", { name: "Floor" })).toHaveAttribute("aria-pressed", "true");
   expect(screen.getByRole("button", { name: "Walls" })).toHaveAttribute("aria-pressed", "false");
@@ -45,6 +53,38 @@ test("shows product specs and room and surface controls", () => {
   expect(screen.getByText("Bathroom · Walls")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Walls" })).toHaveAttribute("aria-pressed", "true");
   expect(screen.getByTestId("three-canvas")).toBeInTheDocument();
+});
+
+test("lets the user pause and resume automatic room rotation", () => {
+  renderVisualizer();
+
+  fireEvent.click(screen.getByRole("button", { name: "Pause auto-rotate" }));
+  expect(screen.getByRole("button", { name: "Resume auto-rotate" })).toHaveAttribute(
+    "aria-pressed",
+    "false"
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "Resume auto-rotate" }));
+  expect(screen.getByRole("button", { name: "Pause auto-rotate" })).toHaveAttribute(
+    "aria-pressed",
+    "true"
+  );
+});
+
+test("lets the user pause and resume automatic zoom", () => {
+  renderVisualizer();
+
+  fireEvent.click(screen.getByRole("button", { name: "Pause auto-zoom" }));
+  expect(screen.getByRole("button", { name: "Resume auto-zoom" })).toHaveAttribute(
+    "aria-pressed",
+    "false"
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "Resume auto-zoom" }));
+  expect(screen.getByRole("button", { name: "Pause auto-zoom" })).toHaveAttribute(
+    "aria-pressed",
+    "true"
+  );
 });
 
 test("reports when browser full screen is unavailable", async () => {

@@ -19,10 +19,19 @@ const ROOM_TEMPLATES = {
   bathroom: { label: "Bathroom", width: 10, depth: 9, height: 8 },
 };
 
-const RoomOrbitControls = () => {
+const getAutoZoomOffset = (elapsed) =>
+  Math.sin((elapsed / 16) * Math.PI * 2) * 1.25;
+
+const RoomOrbitControls = ({ autoRotate, autoZoom }) => {
   const { camera, gl } = useThree();
   const dragPosition = useRef(null);
+  const activePointers = useRef(new Map());
+  const pinchDistance = useRef(0);
   const spherical = useRef(null);
+  const isInteracting = useRef(false);
+  const resumeRotationTimer = useRef(null);
+  const zoomElapsed = useRef(0);
+  const zoomBaseRadius = useRef(null);
   const target = useMemo(() => new THREE.Vector3(0, 3.5, -1), []);
 
   useEffect(() => {
@@ -30,6 +39,7 @@ const RoomOrbitControls = () => {
     spherical.current = new THREE.Spherical().setFromVector3(
       camera.position.clone().sub(target)
     );
+    zoomBaseRadius.current = spherical.current.radius;
 
     const updateCamera = () => {
       const nextPosition = new THREE.Vector3()
@@ -38,12 +48,62 @@ const RoomOrbitControls = () => {
       camera.position.copy(nextPosition);
       camera.lookAt(target);
     };
+    const pauseRotation = () => {
+      isInteracting.current = true;
+      window.clearTimeout(resumeRotationTimer.current);
+    };
+    const scheduleRotationResume = () => {
+      window.clearTimeout(resumeRotationTimer.current);
+      resumeRotationTimer.current = window.setTimeout(() => {
+        isInteracting.current = false;
+      }, 1800);
+    };
+    const measurePinchDistance = () => {
+      const [first, second] = [...activePointers.current.values()];
+      return Math.hypot(second.x - first.x, second.y - first.y);
+    };
     const onPointerDown = (event) => {
       if (event.button !== 0) return;
-      dragPosition.current = { x: event.clientX, y: event.clientY };
+      pauseRotation();
+      activePointers.current.set(event.pointerId, {
+        x: event.clientX,
+        y: event.clientY,
+        pointerType: event.pointerType,
+      });
+      if (activePointers.current.size === 1) {
+        dragPosition.current = { x: event.clientX, y: event.clientY };
+      } else if (event.pointerType === "touch") {
+        dragPosition.current = null;
+        pinchDistance.current = measurePinchDistance();
+      }
       element.setPointerCapture?.(event.pointerId);
     };
     const onPointerMove = (event) => {
+      if (!activePointers.current.has(event.pointerId)) return;
+      activePointers.current.set(event.pointerId, {
+        x: event.clientX,
+        y: event.clientY,
+        pointerType: event.pointerType,
+      });
+      if (event.pointerType === "touch" && activePointers.current.size > 1) {
+        const nextPinchDistance = measurePinchDistance();
+        if (pinchDistance.current > 0 && nextPinchDistance > 0) {
+          const previousRadius = spherical.current.radius;
+          spherical.current.radius = THREE.MathUtils.clamp(
+            previousRadius * (pinchDistance.current / nextPinchDistance),
+            7,
+            32
+          );
+          zoomBaseRadius.current = THREE.MathUtils.clamp(
+            zoomBaseRadius.current + spherical.current.radius - previousRadius,
+            7,
+            32
+          );
+          updateCamera();
+        }
+        pinchDistance.current = nextPinchDistance;
+        return;
+      }
       if (!dragPosition.current) return;
       const deltaX = event.clientX - dragPosition.current.x;
       const deltaY = event.clientY - dragPosition.current.y;
@@ -57,17 +117,43 @@ const RoomOrbitControls = () => {
       updateCamera();
     };
     const stopDragging = (event) => {
-      dragPosition.current = null;
+      activePointers.current.delete(event.pointerId);
       element.releasePointerCapture?.(event.pointerId);
+      if (activePointers.current.size > 1) {
+        pinchDistance.current = measurePinchDistance();
+      } else if (activePointers.current.size === 1) {
+        const remainingPointer = activePointers.current.values().next().value;
+        dragPosition.current = { x: remainingPointer.x, y: remainingPointer.y };
+        pinchDistance.current = 0;
+      } else {
+        dragPosition.current = null;
+        pinchDistance.current = 0;
+      }
+      if (activePointers.current.size === 0 && zoomBaseRadius.current !== null) {
+        zoomBaseRadius.current = THREE.MathUtils.clamp(
+          spherical.current.radius - getAutoZoomOffset(zoomElapsed.current),
+          7,
+          32
+        );
+        scheduleRotationResume();
+      }
     };
     const onWheel = (event) => {
       event.preventDefault();
+      pauseRotation();
+      const previousRadius = spherical.current.radius;
       spherical.current.radius = THREE.MathUtils.clamp(
         spherical.current.radius * (1 + event.deltaY * 0.001),
         7,
         32
       );
+      zoomBaseRadius.current = THREE.MathUtils.clamp(
+        zoomBaseRadius.current + spherical.current.radius - previousRadius,
+        7,
+        32
+      );
       updateCamera();
+      scheduleRotationResume();
     };
 
     element.addEventListener("pointerdown", onPointerDown);
@@ -81,8 +167,26 @@ const RoomOrbitControls = () => {
       element.removeEventListener("pointerup", stopDragging);
       element.removeEventListener("pointercancel", stopDragging);
       element.removeEventListener("wheel", onWheel);
+      window.clearTimeout(resumeRotationTimer.current);
     };
   }, [camera, gl, target]);
+
+  useFrame((_, delta) => {
+    if (isInteracting.current || !spherical.current) return;
+    if (autoRotate) spherical.current.theta -= delta * 0.16;
+    if (autoZoom && zoomBaseRadius.current !== null) {
+      zoomElapsed.current += delta;
+      spherical.current.radius = THREE.MathUtils.clamp(
+        zoomBaseRadius.current + getAutoZoomOffset(zoomElapsed.current),
+        7,
+        32
+      );
+    }
+    camera.position
+      .setFromSpherical(spherical.current)
+      .add(target);
+    camera.lookAt(target);
+  });
 
   return null;
 };
@@ -586,6 +690,8 @@ const TileVisualizer = () => {
   const [room, setRoom] = useState("living");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenError, setFullscreenError] = useState("");
+  const [autoRotate, setAutoRotate] = useState(true);
+  const [autoZoom, setAutoZoom] = useState(true);
   const stageRef = useRef(null);
   const [surface, setSurface] = useState(
     tile?.type === "wall" ? "walls" : "floor"
@@ -705,6 +811,28 @@ const TileVisualizer = () => {
             Exit full screen
           </button>
         )}
+        <button
+          className="tile-visualizer-rotation-toggle"
+          type="button"
+          onClick={() => setAutoRotate((rotating) => !rotating)}
+          aria-label={autoRotate ? "Pause auto-rotate" : "Resume auto-rotate"}
+          aria-pressed={autoRotate}
+          title={autoRotate ? "Pause auto-rotate" : "Resume auto-rotate"}
+        >
+          <span aria-hidden="true">{autoRotate ? "Ⅱ" : "▶"}</span>
+          {autoRotate ? "Pause rotation" : "Auto-rotate"}
+        </button>
+        <button
+          className="tile-visualizer-zoom-toggle"
+          type="button"
+          onClick={() => setAutoZoom((zooming) => !zooming)}
+          aria-label={autoZoom ? "Pause auto-zoom" : "Resume auto-zoom"}
+          aria-pressed={autoZoom}
+          title={autoZoom ? "Pause auto-zoom" : "Resume auto-zoom"}
+        >
+          <span aria-hidden="true">⌕</span>
+          {autoZoom ? "Pause zoom" : "Auto-zoom"}
+        </button>
         <div className="tile-visualizer-scene-label">
           <span className="tile-visualizer-live-dot" />
           {ROOM_TEMPLATES[room].label} · {
@@ -760,10 +888,12 @@ const TileVisualizer = () => {
             <Suspense fallback={<PreviewLoadingFallback />}>
               <Room tile={tile} room={room} surface={surface} />
             </Suspense>
-            <RoomOrbitControls />
+            <RoomOrbitControls autoRotate={autoRotate} autoZoom={autoZoom} />
           </Canvas>
         </VisualizerErrorBoundary>
-        <p className="tile-visualizer-hint">Drag to look around · scroll to zoom</p>
+        <p className="tile-visualizer-hint">
+          Drag or swipe to look around · scroll or pinch to zoom
+        </p>
       </section>
       <p className="tile-visualizer-note">
         Preview only. Tile scale is estimated from the product size and room template.
