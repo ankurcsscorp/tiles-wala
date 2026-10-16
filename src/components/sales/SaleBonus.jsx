@@ -23,6 +23,7 @@ import {
   ToggleButtonGroup,
   Typography,
 } from "@mui/material";
+import StarRoundedIcon from "@mui/icons-material/StarRounded";
 import api from "../../api";
 import { useAuth } from "../../context/AuthContext";
 
@@ -79,6 +80,14 @@ const translations = {
     language: "Language",
     english: "English",
     hindi: "हिन्दी",
+    topMason: "Top tile mason",
+    topSalesperson: "Top salesperson",
+    topThreeMasons: "Top 3 tile masons",
+    topThreeSalespeople: "Top 3 salespeople",
+    topSalesValue: "Lifetime sales",
+    loadingTopSellers: "Loading the top sellers",
+    noTopSellers: "No sales have been recorded for this group yet.",
+    topSellersLoadFailed: "Unable to load the top sellers.",
   },
   hi: {
     title: "बिक्री बोनस",
@@ -126,6 +135,14 @@ const translations = {
     language: "भाषा",
     english: "English",
     hindi: "हिन्दी",
+    topMason: "टाइल मिस्त्रियों में सबसे आगे",
+    topSalesperson: "सेल्सपर्सन में सबसे आगे",
+    topThreeMasons: "शीर्ष 3 टाइल मिस्त्री",
+    topThreeSalespeople: "शीर्ष 3 सेल्सपर्सन",
+    topSalesValue: "कुल बिक्री",
+    loadingTopSellers: "शीर्ष विक्रेताओं का विवरण लोड हो रहा है",
+    noTopSellers: "इस समूह के लिए अभी तक कोई बिक्री दर्ज नहीं हुई है।",
+    topSellersLoadFailed: "शीर्ष विक्रेताओं का विवरण लोड नहीं हो सका।",
   },
 };
 
@@ -175,11 +192,52 @@ const SaleBonus = () => {
   const [records, setRecords] = useState([]);
   const [recordsLoading, setRecordsLoading] = useState(false);
   const [recordsError, setRecordsError] = useState("");
+  const [topSellers, setTopSellers] = useState([]);
+  const [topSellersLoading, setTopSellersLoading] = useState(false);
+  const [topSellersError, setTopSellersError] = useState(false);
   const [paymentDrafts, setPaymentDrafts] = useState({});
   const [paymentSubmittingId, setPaymentSubmittingId] = useState(null);
   const [paymentFeedback, setPaymentFeedback] = useState({});
   const searchRequestRef = useRef(0);
   const recordsRequestRef = useRef(0);
+
+  useEffect(() => {
+    const sellerType = isAdmin ? selectedUser?.userType : user?.userType;
+    if (!sellerType) {
+      setTopSellers([]);
+      setTopSellersError(false);
+      setTopSellersLoading(false);
+      return undefined;
+    }
+
+    let active = true;
+    const loadTopSellers = async () => {
+      setTopSellers([]);
+      setTopSellersLoading(true);
+      setTopSellersError(false);
+      try {
+        const response = await api.get(`${API_URL}/sales-bonus/top-seller`, {
+          params: isAdmin ? { userType: sellerType } : undefined,
+        });
+        if (!Array.isArray(response.data?.topSellers)) {
+          throw new Error("The server returned an invalid top sellers response.");
+        }
+        if (active) setTopSellers(response.data.topSellers);
+      } catch {
+        if (active) {
+          setTopSellers([]);
+          setTopSellersError(true);
+        }
+      } finally {
+        if (active) setTopSellersLoading(false);
+      }
+    };
+
+    loadTopSellers();
+    return () => {
+      active = false;
+    };
+  }, [isAdmin, selectedUser?.id, selectedUser?.userType, user?.userType]);
 
   useEffect(() => {
     if (!isAdmin) return undefined;
@@ -442,6 +500,65 @@ const SaleBonus = () => {
             </Paper>
           )}
 
+          {(!isAdmin || selectedUser) && (
+            <Paper
+              variant="outlined"
+              sx={{
+                p: 2,
+                borderColor: "warning.light",
+                bgcolor: "warning.50",
+              }}
+            >
+              {topSellersLoading ? (
+                <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+                  <CircularProgress size={20} aria-label={text.loadingTopSellers} />
+                  <Typography>{text.loadingTopSellers}</Typography>
+                </Stack>
+              ) : topSellersError ? (
+                <Alert severity="error">{text.topSellersLoadFailed}</Alert>
+              ) : topSellers.length > 0 ? (
+                <Stack direction="row" spacing={1.5} sx={{ alignItems: "flex-start" }}>
+                  <StarRoundedIcon
+                    aria-hidden="true"
+                    sx={{ color: "warning.main", fontSize: 36, mt: 0.25 }}
+                  />
+                  <Stack spacing={1}>
+                    <Typography variant="subtitle1" fontWeight={700}>
+                      {(isAdmin ? selectedUser.userType : user?.userType)
+                        ?.toLowerCase() === "tile mistire"
+                        ? isAdmin
+                          ? text.topThreeMasons
+                          : text.topMason
+                        : isAdmin
+                          ? text.topThreeSalespeople
+                          : text.topSalesperson}
+                    </Typography>
+                    {(isAdmin ? topSellers : topSellers.slice(0, 1)).map(
+                      (seller, index) => (
+                        <Box key={seller.id}>
+                          <Typography fontWeight={600}>
+                            #{index + 1} {seller.name}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {text.topSalesValue}: {INR(seller.total_sales)}
+                          </Typography>
+                        </Box>
+                      )
+                    )}
+                  </Stack>
+                </Stack>
+              ) : (
+                <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+                  <StarRoundedIcon
+                    aria-hidden="true"
+                    sx={{ color: "warning.main", fontSize: 36 }}
+                  />
+                  <Typography>{text.noTopSellers}</Typography>
+                </Stack>
+              )}
+            </Paper>
+          )}
+
           {searchError && <Alert severity="info">{text[searchError]}</Alert>}
           {recordsError && <Alert severity="error">{text[recordsError]}</Alert>}
 
@@ -513,9 +630,8 @@ const SaleBonus = () => {
                       <Stack
                         direction={{ xs: "column", sm: "row" }}
                         justifyContent="space-between"
-                        alignItems={{ xs: "flex-start", sm: "center" }}
                         spacing={1}
-                        sx={{ mb: 2 }}
+                        sx={{ mb: 2, alignItems: { xs: "flex-start", sm: "center" } }}
                       >
                         <Box>
                           <Typography variant="h6" fontWeight={700}>
@@ -637,7 +753,7 @@ const SaleBonus = () => {
                           <Stack
                             direction={{ xs: "column", sm: "row" }}
                             spacing={1.5}
-                            alignItems={{ sm: "center" }}
+                            sx={{ alignItems: { sm: "center" } }}
                           >
                             <TextField
                               label={text.amount}
