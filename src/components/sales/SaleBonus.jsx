@@ -19,12 +19,115 @@ import {
   TableHead,
   TableRow,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from "@mui/material";
 import api from "../../api";
 import { useAuth } from "../../context/AuthContext";
 
 const API_URL = "http://localhost:4000/api/tiles";
+
+const translations = {
+  en: {
+    title: "Sales Bonus",
+    description:
+      "View sale dates, item-wise bonuses, payments, and any outstanding bonus balance.",
+    searchUser: "Search user by name or mobile",
+    searchPlaceholder: "Enter a name or mobile number",
+    noMatchingUser: "No matching user found.",
+    searchFailed: "Unable to search users.",
+    loadFailed: "Unable to load sales bonus records.",
+    paymentAmountError:
+      "Enter an amount greater than zero and no more than the due amount.",
+    paymentFailed: "Unable to update the payment.",
+    paymentSaved: "Payment saved.",
+    selectUser:
+      "Search by name or mobile number and select a user to view their sales bonus records.",
+    loading: "Loading sales bonus records",
+    noRecords: "No sale bonus records found.",
+    totalBonus: "Total bonus",
+    totalPaid: "Total paid",
+    totalDueBonus: "Total due bonus",
+    outstandingWarning:
+      "Outstanding bonus from previous sales is included in the total due bonus above.",
+    allPaid: "All bonus amount paid",
+    saleOn: "Sale on",
+    sale: "Sale",
+    paymentDue: "Payment due",
+    paid: "Paid",
+    item: "Item",
+    sellingPrice: "Selling price",
+    quantity: "Quantity",
+    bonusPercent: "Bonus %",
+    itemBonus: "Item bonus",
+    noItemDetails: "No item details available.",
+    saleBonus: "Sale bonus",
+    dueFromSale: "Due from this sale",
+    paymentStatus: "Payment status",
+    partiallyPaid: "Partially paid",
+    unpaid: "Unpaid",
+    recordPaymentTitle: "Record a payment for this sale",
+    amount: "Amount",
+    method: "Method",
+    cash: "Cash",
+    upi: "UPI",
+    saving: "Saving...",
+    recordPayment: "Record payment",
+    payRemaining: "Pay remaining",
+    dateUnavailable: "Date unavailable",
+    language: "Language",
+    english: "English",
+    hindi: "हिन्दी",
+  },
+  hi: {
+    title: "बिक्री बोनस",
+    description: "बिक्री की तारीख, हर सामान का बोनस, भुगतान और बाकी बोनस देखें।",
+    searchUser: "नाम या मोबाइल से उपयोगकर्ता खोजें",
+    searchPlaceholder: "नाम या मोबाइल नंबर लिखें",
+    noMatchingUser: "इस नाम या मोबाइल नंबर से कोई उपयोगकर्ता नहीं मिला।",
+    searchFailed: "उपयोगकर्ता खोजा नहीं जा सका।",
+    loadFailed: "बिक्री बोनस का विवरण लोड नहीं हो सका।",
+    paymentAmountError: "रकम शून्य से अधिक और बाकी रकम से कम या बराबर लिखें।",
+    paymentFailed: "भुगतान दर्ज नहीं हो सका।",
+    paymentSaved: "भुगतान दर्ज हो गया।",
+    selectUser: "बिक्री बोनस देखने के लिए नाम या मोबाइल नंबर से उपयोगकर्ता खोजें और चुनें।",
+    loading: "बिक्री बोनस का विवरण लोड हो रहा है",
+    noRecords: "बिक्री बोनस का कोई रिकॉर्ड नहीं मिला।",
+    totalBonus: "कुल बोनस",
+    totalPaid: "कुल भुगतान",
+    totalDueBonus: "कुल बाकी बोनस",
+    outstandingWarning: "पिछली बिक्री का बाकी बोनस ऊपर दिखाई गई कुल बाकी रकम में शामिल है।",
+    allPaid: "पूरा बोनस चुका दिया गया है",
+    saleOn: "बिक्री की तारीख",
+    sale: "बिक्री",
+    paymentDue: "भुगतान बाकी",
+    paid: "भुगतान हो गया",
+    item: "सामान",
+    sellingPrice: "बिक्री की कीमत",
+    quantity: "मात्रा",
+    bonusPercent: "बोनस %",
+    itemBonus: "सामान का बोनस",
+    noItemDetails: "सामान का विवरण उपलब्ध नहीं है।",
+    saleBonus: "बिक्री का बोनस",
+    dueFromSale: "इस बिक्री का बाकी",
+    paymentStatus: "भुगतान की स्थिति",
+    partiallyPaid: "कुछ भुगतान हुआ",
+    unpaid: "भुगतान बाकी",
+    recordPaymentTitle: "इस बिक्री का भुगतान दर्ज करें",
+    amount: "रकम",
+    method: "तरीका",
+    cash: "नकद",
+    upi: "यूपीआई",
+    saving: "सेव हो रहा है...",
+    recordPayment: "भुगतान दर्ज करें",
+    payRemaining: "बाकी रकम दें",
+    dateUnavailable: "तारीख उपलब्ध नहीं है",
+    language: "भाषा",
+    english: "English",
+    hindi: "हिन्दी",
+  },
+};
 
 const INR = (value) =>
   new Intl.NumberFormat("en-IN", {
@@ -34,11 +137,11 @@ const INR = (value) =>
     maximumFractionDigits: 2,
   }).format(Number(value || 0));
 
-const formatSaleDate = (value) => {
+const formatSaleDate = (value, language) => {
   const date = new Date(value);
   return Number.isNaN(date.getTime())
-    ? "Date unavailable"
-    : date.toLocaleString("en-IN", {
+    ? translations[language].dateUnavailable
+    : date.toLocaleString(language === "hi" ? "hi-IN" : "en-IN", {
         dateStyle: "medium",
         timeStyle: "short",
       });
@@ -53,6 +156,17 @@ const amountDue = (record) =>
 const SaleBonus = () => {
   const { user } = useAuth();
   const isAdmin = user?.userType?.toLowerCase() === "admin";
+  const [language, setLanguage] = useState(isAdmin ? "en" : "hi");
+  const text = translations[language];
+  const displayUserType = (userType) => {
+    if (language === "en" || !userType) return userType;
+    const hindiUserTypes = {
+      admin: "प्रशासक",
+      salesperson: "सेल्सपर्सन",
+      "tile mistire": "टाइल मिस्त्री",
+    };
+    return hindiUserTypes[userType.toLowerCase()] || userType;
+  };
   const [searchText, setSearchText] = useState("");
   const [userOptions, setUserOptions] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -95,14 +209,12 @@ const SaleBonus = () => {
         });
         if (requestId === searchRequestRef.current) {
           setUserOptions(response.data || []);
-          if (!response.data?.length) setSearchError("No matching user found.");
+          if (!response.data?.length) setSearchError("noMatchingUser");
         }
-      } catch (error) {
+      } catch {
         if (requestId === searchRequestRef.current) {
           setUserOptions([]);
-          setSearchError(
-            error.response?.data?.message || "Unable to search users."
-          );
+          setSearchError("searchFailed");
         }
       } finally {
         if (requestId === searchRequestRef.current) setSearchLoading(false);
@@ -131,11 +243,9 @@ const SaleBonus = () => {
         if (requestId === recordsRequestRef.current) {
           setRecords(response.data.records || []);
         }
-      } catch (error) {
+      } catch {
         if (requestId === recordsRequestRef.current) {
-          setRecordsError(
-            error.response?.data?.message || "Unable to load sales bonus records."
-          );
+          setRecordsError("loadFailed");
         }
       } finally {
         if (requestId === recordsRequestRef.current) setRecordsLoading(false);
@@ -186,7 +296,7 @@ const SaleBonus = () => {
         ...current,
         [record.id]: {
           severity: "error",
-          message: "Enter an amount greater than zero and no more than the due amount.",
+          message: "paymentAmountError",
         },
       }));
       return;
@@ -214,16 +324,15 @@ const SaleBonus = () => {
         ...current,
         [record.id]: {
           severity: "success",
-          message: response.data.message || "Payment saved.",
+          message: "paymentSaved",
         },
       }));
-    } catch (error) {
+    } catch {
       setPaymentFeedback((current) => ({
         ...current,
         [record.id]: {
           severity: "error",
-          message:
-            error.response?.data?.message || "Unable to update the payment.",
+          message: "paymentFailed",
         },
       }));
     } finally {
@@ -235,14 +344,35 @@ const SaleBonus = () => {
     <Box sx={{ maxWidth: 1200, mx: "auto", px: { xs: 2, md: 4 }, py: 5 }}>
       <Paper sx={{ p: { xs: 2, md: 4 }, borderRadius: 3 }}>
         <Stack spacing={3}>
-          <Box>
-            <Typography variant="h4" fontWeight={700}>
-              Sales Bonus
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              View sale dates, item-wise bonuses, payments, and any outstanding
-              bonus balance.
-            </Typography>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: { xs: "flex-start", sm: "center" },
+              gap: 2,
+              flexWrap: "wrap",
+            }}
+          >
+            <Box>
+              <Typography variant="h4" fontWeight={700}>
+                {text.title}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {text.description}
+              </Typography>
+            </Box>
+            <ToggleButtonGroup
+              value={language}
+              exclusive
+              size="small"
+              aria-label={text.language}
+              onChange={(_, nextLanguage) => {
+                if (nextLanguage) setLanguage(nextLanguage);
+              }}
+            >
+              <ToggleButton value="en">{text.english}</ToggleButton>
+              <ToggleButton value="hi">{text.hindi}</ToggleButton>
+            </ToggleButtonGroup>
           </Box>
 
           {isAdmin ? (
@@ -275,7 +405,7 @@ const SaleBonus = () => {
                         {option.name}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {option.mobile} · {option.userType}
+                        {option.mobile} · {displayUserType(option.userType)}
                       </Typography>
                     </Stack>
                   </Box>
@@ -284,19 +414,19 @@ const SaleBonus = () => {
               renderInput={(params) => (
                 <TextField
                   {...params}
-                  label="Search user by name or mobile"
-                  placeholder="Enter a name or mobile number"
+                  label={text.searchUser}
+                  placeholder={text.searchPlaceholder}
                   slotProps={{
                     ...params.slotProps,
                     input: {
                       ...params.slotProps.input,
                       endAdornment: (
-                      <>
-                        {searchLoading ? (
-                          <CircularProgress color="inherit" size={18} />
-                        ) : null}
-                        {params.slotProps.input.endAdornment}
-                      </>
+                        <>
+                          {searchLoading ? (
+                            <CircularProgress color="inherit" size={18} />
+                          ) : null}
+                          {params.slotProps.input.endAdornment}
+                        </>
                       ),
                     },
                   }}
@@ -307,25 +437,24 @@ const SaleBonus = () => {
             <Paper variant="outlined" sx={{ p: 2 }}>
               <Typography fontWeight={600}>{user?.name}</Typography>
               <Typography variant="body2" color="text.secondary">
-                {user?.mobile} · {user?.userType}
+                {user?.mobile} · {displayUserType(user?.userType)}
               </Typography>
             </Paper>
           )}
 
-          {searchError && <Alert severity="info">{searchError}</Alert>}
-          {recordsError && <Alert severity="error">{recordsError}</Alert>}
+          {searchError && <Alert severity="info">{text[searchError]}</Alert>}
+          {recordsError && <Alert severity="error">{text[recordsError]}</Alert>}
 
           {isAdmin && !selectedUser ? (
             <Alert severity="info">
-              Search by name or mobile number and select a user to view their
-              sales bonus records.
+              {text.selectUser}
             </Alert>
           ) : recordsLoading ? (
             <Box sx={{ display: "flex", justifyContent: "center", py: 5 }}>
-              <CircularProgress aria-label="Loading sales bonus records" />
+              <CircularProgress aria-label={text.loading} />
             </Box>
           ) : recordsError ? null : records.length === 0 ? (
-            <Alert severity="info">No sale bonus records found.</Alert>
+            <Alert severity="info">{text.noRecords}</Alert>
           ) : (
             <>
               <Box
@@ -340,7 +469,7 @@ const SaleBonus = () => {
               >
                 <Paper variant="outlined" sx={{ p: 2 }}>
                   <Typography variant="body2" color="text.secondary">
-                    Total bonus
+                    {text.totalBonus}
                   </Typography>
                   <Typography variant="h6" fontWeight={700}>
                     {INR(totals.bonus)}
@@ -348,7 +477,7 @@ const SaleBonus = () => {
                 </Paper>
                 <Paper variant="outlined" sx={{ p: 2 }}>
                   <Typography variant="body2" color="text.secondary">
-                    Total paid
+                    {text.totalPaid}
                   </Typography>
                   <Typography variant="h6" fontWeight={700}>
                     {INR(totals.paid)}
@@ -356,7 +485,7 @@ const SaleBonus = () => {
                 </Paper>
                 <Paper variant="outlined" sx={{ p: 2 }}>
                   <Typography variant="body2" color="text.secondary">
-                    Total due bonus
+                    {text.totalDueBonus}
                   </Typography>
                   <Typography variant="h6" fontWeight={700}>
                     {INR(totals.due)}
@@ -366,11 +495,10 @@ const SaleBonus = () => {
 
               {totals.due > 0 ? (
                 <Alert severity="warning">
-                  Outstanding bonus from previous sales is included in the
-                  total due bonus above.
+                  {text.outstandingWarning}
                 </Alert>
               ) : (
-                <Alert severity="success">All bonus amount paid</Alert>
+                <Alert severity="success">{text.allPaid}</Alert>
               )}
 
               <Stack spacing={2}>
@@ -391,14 +519,14 @@ const SaleBonus = () => {
                       >
                         <Box>
                           <Typography variant="h6" fontWeight={700}>
-                            Sale on {formatSaleDate(record.created_at)}
+                            {text.saleOn} {formatSaleDate(record.created_at, language)}
                           </Typography>
                           <Typography variant="body2" color="text.secondary">
-                            Sale #{record.id}
+                            {text.sale} #{record.id}
                           </Typography>
                         </Box>
                         <Chip
-                          label={due > 0 ? "Payment due" : "Paid"}
+                          label={due > 0 ? text.paymentDue : text.paid}
                           color={due > 0 ? "warning" : "success"}
                           variant="outlined"
                         />
@@ -408,11 +536,11 @@ const SaleBonus = () => {
                         <Table size="small" sx={{ minWidth: 680 }}>
                           <TableHead>
                             <TableRow>
-                              <TableCell>Item</TableCell>
-                              <TableCell align="right">Selling price</TableCell>
-                              <TableCell align="right">Quantity</TableCell>
-                              <TableCell align="right">Bonus %</TableCell>
-                              <TableCell align="right">Item bonus</TableCell>
+                              <TableCell>{text.item}</TableCell>
+                              <TableCell align="right">{text.sellingPrice}</TableCell>
+                              <TableCell align="right">{text.quantity}</TableCell>
+                              <TableCell align="right">{text.bonusPercent}</TableCell>
+                              <TableCell align="right">{text.itemBonus}</TableCell>
                             </TableRow>
                           </TableHead>
                           <TableBody>
@@ -436,7 +564,7 @@ const SaleBonus = () => {
                             {record.items?.length === 0 && (
                               <TableRow>
                                 <TableCell colSpan={5} align="center">
-                                  No item details available.
+                                  {text.noItemDetails}
                                 </TableCell>
                               </TableRow>
                             )}
@@ -456,7 +584,7 @@ const SaleBonus = () => {
                       >
                         <Box>
                           <Typography variant="caption" color="text.secondary">
-                            Sale bonus
+                            {text.saleBonus}
                           </Typography>
                           <Typography fontWeight={600}>
                             {INR(record.final_user_bonus)}
@@ -464,18 +592,24 @@ const SaleBonus = () => {
                         </Box>
                         <Box>
                           <Typography variant="caption" color="text.secondary">
-                            Paid
+                            {text.paid}
                           </Typography>
                           <Typography fontWeight={600}>
                             {INR(record.total_amount_paid)}
                             {record.payment_method
-                              ? ` · ${record.payment_method}`
+                              ? ` · ${
+                                  record.payment_method === "CASH"
+                                    ? text.cash
+                                    : record.payment_method === "UPI"
+                                      ? text.upi
+                                      : record.payment_method
+                                }`
                               : ""}
                           </Typography>
                         </Box>
                         <Box>
                           <Typography variant="caption" color="text.secondary">
-                            Due from this sale
+                            {text.dueFromSale}
                           </Typography>
                           <Typography fontWeight={600}>
                             {INR(due)}
@@ -483,14 +617,14 @@ const SaleBonus = () => {
                         </Box>
                         <Box>
                           <Typography variant="caption" color="text.secondary">
-                            Payment status
+                            {text.paymentStatus}
                           </Typography>
                           <Typography fontWeight={600}>
                             {due === 0
-                              ? "All bonus amount paid"
+                              ? text.allPaid
                               : due < Number(record.final_user_bonus)
-                                ? "Partially paid"
-                                : "Unpaid"}
+                                ? text.partiallyPaid
+                                : text.unpaid}
                           </Typography>
                         </Box>
                       </Box>
@@ -498,7 +632,7 @@ const SaleBonus = () => {
                       {isAdmin && due > 0 && (
                         <Box sx={{ mt: 2, pt: 2, borderTop: 1, borderColor: "divider" }}>
                           <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>
-                            Record a payment for this sale
+                            {text.recordPaymentTitle}
                           </Typography>
                           <Stack
                             direction={{ xs: "column", sm: "row" }}
@@ -506,7 +640,7 @@ const SaleBonus = () => {
                             alignItems={{ sm: "center" }}
                           >
                             <TextField
-                              label="Amount"
+                              label={text.amount}
                               type="number"
                               size="small"
                               value={paymentDrafts[record.id]?.amount ?? ""}
@@ -518,11 +652,11 @@ const SaleBonus = () => {
                             />
                             <FormControl size="small" sx={{ minWidth: { sm: 140 } }}>
                               <InputLabel id={`payment-method-${record.id}`}>
-                                Method
+                                {text.method}
                               </InputLabel>
                               <Select
                                 labelId={`payment-method-${record.id}`}
-                                label="Method"
+                                label={text.method}
                                 value={paymentDrafts[record.id]?.paymentMethod ?? "CASH"}
                                 onChange={(event) =>
                                   updatePaymentDraft(
@@ -532,8 +666,8 @@ const SaleBonus = () => {
                                   )
                                 }
                               >
-                                <MenuItem value="CASH">Cash</MenuItem>
-                                <MenuItem value="UPI">UPI</MenuItem>
+                                <MenuItem value="CASH">{text.cash}</MenuItem>
+                                <MenuItem value="UPI">{text.upi}</MenuItem>
                               </Select>
                             </FormControl>
                             <Button
@@ -542,15 +676,15 @@ const SaleBonus = () => {
                               disabled={paymentSubmittingId === record.id}
                             >
                               {paymentSubmittingId === record.id
-                                ? "Saving..."
-                                : "Record payment"}
+                                ? text.saving
+                                : text.recordPayment}
                             </Button>
                             <Button
                               variant="outlined"
                               onClick={() => handleRecordPayment(record, true)}
                               disabled={paymentSubmittingId === record.id}
                             >
-                              Pay remaining {INR(due)}
+                              {text.payRemaining} {INR(due)}
                             </Button>
                           </Stack>
                           {paymentFeedback[record.id] && (
@@ -558,7 +692,7 @@ const SaleBonus = () => {
                               severity={paymentFeedback[record.id].severity}
                               sx={{ mt: 1.5 }}
                             >
-                              {paymentFeedback[record.id].message}
+                              {text[paymentFeedback[record.id].message]}
                             </Alert>
                           )}
                         </Box>
