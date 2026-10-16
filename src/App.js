@@ -39,43 +39,54 @@ const ProtectedRoute = ({ allowedUserTypes, children }) => {
   return children;
 };
 
+const AppContent = () => {
+  const location = useLocation();
+  const isVisualizer = location.pathname === "/visualizer";
+
+  return (
+    <>
+      {!isVisualizer && <Header />}
+      <Routes>
+        <Route path="/auth" element={<Auth />} />
+        <Route path="/" element={<NewCollection />} />
+        <Route path="/visualizer" element={<TileVisualizer />} />
+        <Route path="/contact" element={<ContactUs />} />
+        <Route path="/enquiry" element={<EnquiryForm />} />
+        <Route
+          path="/sales-bonus"
+          element={
+            <ProtectedRoute allowedUserTypes={["admin", "salesperson", "tile mistire"]}>
+              <SaleBonus />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/sales-bonus-management"
+          element={
+            <ProtectedRoute allowedUserTypes={["admin"]}>
+              <SaleBonusManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/enquiry-management"
+          element={
+            <ProtectedRoute allowedUserTypes={["admin", "salesperson"]}>
+              <EnquiryTable />
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+      {!isVisualizer && <Footer />}
+    </>
+  );
+};
+
 function App() {
   return (
     <AuthProvider>
       <Router>
-        <Header />
-        <Routes>
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/" element={<NewCollection />} />
-          <Route path="/visualizer" element={<TileVisualizer />} />
-          <Route path="/contact" element={<ContactUs />} />
-          <Route path="/enquiry" element={<EnquiryForm />} />
-          <Route
-            path="/sales-bonus"
-            element={
-              <ProtectedRoute allowedUserTypes={["admin", "salesperson", "tile mistire"]}>
-                <SaleBonus />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/sales-bonus-management"
-            element={
-              <ProtectedRoute allowedUserTypes={["admin"]}>
-                <SaleBonusManagement />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/enquiry-management"
-            element={
-              <ProtectedRoute allowedUserTypes={["admin", "salesperson"]}>
-                <EnquiryTable />
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
-        <Footer />
+        <AppContent />
       </Router>
     </AuthProvider>
   );

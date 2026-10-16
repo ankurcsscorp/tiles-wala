@@ -584,9 +584,37 @@ const TileVisualizer = () => {
   const navigate = useNavigate();
   const tile = location.state?.tile;
   const [room, setRoom] = useState("living");
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [fullscreenError, setFullscreenError] = useState("");
+  const stageRef = useRef(null);
   const [surface, setSurface] = useState(
     tile?.type === "wall" ? "walls" : "floor"
   );
+
+  useEffect(() => {
+    const syncFullscreenState = () => {
+      setIsFullscreen(document.fullscreenElement === stageRef.current);
+    };
+    document.addEventListener("fullscreenchange", syncFullscreenState);
+    return () => document.removeEventListener("fullscreenchange", syncFullscreenState);
+  }, []);
+
+  const toggleFullscreen = async () => {
+    setFullscreenError("");
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else if (stageRef.current?.requestFullscreen) {
+        await stageRef.current.requestFullscreen();
+      } else {
+        setFullscreenError("Full screen is not supported by this browser.");
+      }
+    } catch (error) {
+      console.error("Unable to change visualizer full-screen mode:", error);
+      setFullscreenError("Unable to open full screen. Please check your browser permissions.");
+    }
+  };
+
   const backToGallery = () => {
     if (window.history.state?.idx > 0) {
       navigate(-1);
@@ -648,10 +676,35 @@ const TileVisualizer = () => {
               </button>
             ))}
           </fieldset>
+          <button
+            className="tile-visualizer-fullscreen-button"
+            type="button"
+            onClick={toggleFullscreen}
+            aria-label={isFullscreen ? "Exit full screen" : "View full screen"}
+            title={isFullscreen ? "Exit full screen" : "View full screen"}
+          >
+            <span aria-hidden="true">{isFullscreen ? "⤢" : "⛶"}</span>
+            <span>{isFullscreen ? "Exit" : "Full screen"}</span>
+          </button>
         </div>
       </header>
 
-      <section className="tile-visualizer-stage" aria-label={`${tile.name} 3D room preview`}>
+      <section
+        className="tile-visualizer-stage"
+        ref={stageRef}
+        aria-label={`${tile.name} 3D room preview`}
+      >
+        {isFullscreen && (
+          <button
+            className="tile-visualizer-exit-fullscreen"
+            type="button"
+            onClick={toggleFullscreen}
+            aria-label="Exit full screen"
+          >
+            <span aria-hidden="true">⤢</span>
+            Exit full screen
+          </button>
+        )}
         <div className="tile-visualizer-scene-label">
           <span className="tile-visualizer-live-dot" />
           {ROOM_TEMPLATES[room].label} · {
@@ -715,6 +768,11 @@ const TileVisualizer = () => {
       <p className="tile-visualizer-note">
         Preview only. Tile scale is estimated from the product size and room template.
       </p>
+      {fullscreenError && (
+        <p className="tile-visualizer-fullscreen-error" role="alert">
+          {fullscreenError}
+        </p>
+      )}
     </main>
   );
 };
