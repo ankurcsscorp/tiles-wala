@@ -10,6 +10,7 @@ import Header from "./components/Header";
 import OnlineStore from "./components/OnlineStore";
 import ContactUs from "./components/ContactUs";
 import NewCollection from "./components/NewCollection";
+import TileVisualizer from "./components/TileVisualizer";
 import Auth from "./components/Auth";
 import Footer from "./components/footer/Footer";
 import EnquiryForm from "./components/Enquiry/EnquiryForm";
@@ -46,6 +47,7 @@ function App() {
         <Routes>
           <Route path="/auth" element={<Auth />} />
           <Route path="/" element={<NewCollection />} />
+          <Route path="/visualizer" element={<TileVisualizer />} />
           <Route path="/contact" element={<ContactUs />} />
           <Route path="/enquiry" element={<EnquiryForm />} />
           <Route

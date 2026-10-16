@@ -290,6 +290,26 @@
   transition: border-color 160ms ease, color 160ms ease;
 }
 
+.collection-visualize-button {
+  display: block;
+  width: 100%;
+  margin-top: 15px;
+  min-height: 42px;
+  border: 1px solid var(--collection-ink);
+  background: var(--collection-ink);
+  color: white;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.collection-visualize-button:hover {
+  border-color: var(--collection-accent);
+  background: var(--collection-accent);
+}
+
 .collection-edit-button:hover {
   border-color: var(--collection-accent);
   color: var(--collection-accent);

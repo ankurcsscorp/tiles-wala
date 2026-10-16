@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import api from "../api";
 import { useAuth } from "../context/AuthContext";
 import NewCollection from "./NewCollection";
@@ -28,8 +29,18 @@ beforeEach(() => {
   useAuth.mockReturnValue({ user: null });
 });
 
+const renderCollection = () =>
+  render(
+    <MemoryRouter initialEntries={["/"]}>
+      <Routes>
+        <Route path="/" element={<NewCollection />} />
+        <Route path="/visualizer" element={<h1>3D room preview</h1>} />
+      </Routes>
+    </MemoryRouter>
+  );
+
 test("shows saved collections to visitors without admin controls", async () => {
-  render(<NewCollection />);
+  renderCollection();
 
   expect(await screen.findByRole("heading", { name: "Calacatta Gold" })).toBeInTheDocument();
   expect(screen.getByText("A warm marble look.")).toBeInTheDocument();
@@ -39,7 +50,7 @@ test("shows saved collections to visitors without admin controls", async () => {
 test("shows the collection upload form to admins", async () => {
   useAuth.mockReturnValue({ user: { userType: "Admin" } });
 
-  render(<NewCollection />);
+  renderCollection();
 
   expect(await screen.findByRole("heading", { name: "Add a tile collection" })).toBeInTheDocument();
   expect(screen.getByLabelText("Collection name")).toBeInTheDocument();
@@ -57,7 +68,7 @@ test("publishes all pictures selected in separate batches", async () => {
     images: ["data:image/png;base64,dGlsZTE=", "data:image/jpeg;base64,dGlsZTI="],
   };
   api.post.mockResolvedValue({ data: postedCollection });
-  render(<NewCollection />);
+  renderCollection();
 
   fireEvent.change(screen.getByLabelText("Collection name"), {
     target: { value: "New Marble" },
@@ -110,7 +121,7 @@ test("allows an admin to edit and save an existing featured product", async () =
   };
   api.put.mockResolvedValue({ status: 200, data: updatedCollection });
 
-  render(<NewCollection />);
+  renderCollection();
 
   fireEvent.click(await screen.findByRole("button", { name: "Edit Calacatta Gold" }));
   expect(screen.getByRole("heading", { name: "Edit Calacatta Gold" })).toBeInTheDocument();
@@ -144,7 +155,7 @@ test("saves edits to a built-in featured product through the featured update end
   };
   api.put.mockResolvedValue({ status: 200, data: featuredUpdate });
 
-  render(<NewCollection />);
+  renderCollection();
 
   fireEvent.click(await screen.findByRole("button", { name: "Edit Marvilla Blue" }));
   fireEvent.change(screen.getByLabelText("Description"), {
@@ -186,8 +197,17 @@ test("shows a featured product only once when the API contains an accidental dup
     ],
   });
 
-  render(<NewCollection />);
+  renderCollection();
 
   expect(await screen.findByRole("heading", { name: "Marvilla Blue" })).toBeInTheDocument();
   expect(screen.getAllByRole("heading", { name: "Marvilla Blue" })).toHaveLength(1);
+});
+
+test("opens the 360 preview for a gallery product", async () => {
+  renderCollection();
+
+  const viewButtons = await screen.findAllByRole("button", { name: "View in 360°" });
+  fireEvent.click(viewButtons[0]);
+
+  expect(await screen.findByRole("heading", { name: "3D room preview" })).toBeInTheDocument();
 });

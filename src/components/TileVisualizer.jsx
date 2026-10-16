@@ -1,0 +1,722 @@
+import React, {
+  Component,
+  Suspense,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber";
+import * as THREE from "three";
+import { useLocation, useNavigate } from "react-router-dom";
+import "./TileVisualizer.css";
+
+const COLLECTION_PATH = "/";
+
+const ROOM_TEMPLATES = {
+  living: { label: "Living Room", width: 16, depth: 13, height: 9 },
+  bedroom: { label: "Bedroom", width: 13, depth: 12, height: 9 },
+  bathroom: { label: "Bathroom", width: 10, depth: 9, height: 8 },
+};
+
+const RoomOrbitControls = () => {
+  const { camera, gl } = useThree();
+  const dragPosition = useRef(null);
+  const spherical = useRef(null);
+  const target = useMemo(() => new THREE.Vector3(0, 3.5, -1), []);
+
+  useEffect(() => {
+    const element = gl.domElement;
+    spherical.current = new THREE.Spherical().setFromVector3(
+      camera.position.clone().sub(target)
+    );
+
+    const updateCamera = () => {
+      const nextPosition = new THREE.Vector3()
+        .setFromSpherical(spherical.current)
+        .add(target);
+      camera.position.copy(nextPosition);
+      camera.lookAt(target);
+    };
+    const onPointerDown = (event) => {
+      if (event.button !== 0) return;
+      dragPosition.current = { x: event.clientX, y: event.clientY };
+      element.setPointerCapture?.(event.pointerId);
+    };
+    const onPointerMove = (event) => {
+      if (!dragPosition.current) return;
+      const deltaX = event.clientX - dragPosition.current.x;
+      const deltaY = event.clientY - dragPosition.current.y;
+      dragPosition.current = { x: event.clientX, y: event.clientY };
+      spherical.current.theta -= deltaX * 0.006;
+      spherical.current.phi = THREE.MathUtils.clamp(
+        spherical.current.phi + deltaY * 0.006,
+        0.2,
+        Math.PI / 2 - 0.04
+      );
+      updateCamera();
+    };
+    const stopDragging = (event) => {
+      dragPosition.current = null;
+      element.releasePointerCapture?.(event.pointerId);
+    };
+    const onWheel = (event) => {
+      event.preventDefault();
+      spherical.current.radius = THREE.MathUtils.clamp(
+        spherical.current.radius * (1 + event.deltaY * 0.001),
+        7,
+        32
+      );
+      updateCamera();
+    };
+
+    element.addEventListener("pointerdown", onPointerDown);
+    element.addEventListener("pointermove", onPointerMove);
+    element.addEventListener("pointerup", stopDragging);
+    element.addEventListener("pointercancel", stopDragging);
+    element.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      element.removeEventListener("pointerdown", onPointerDown);
+      element.removeEventListener("pointermove", onPointerMove);
+      element.removeEventListener("pointerup", stopDragging);
+      element.removeEventListener("pointercancel", stopDragging);
+      element.removeEventListener("wheel", onWheel);
+    };
+  }, [camera, gl, target]);
+
+  return null;
+};
+
+const getTileDimensions = (size) => {
+  const value = String(size ?? "");
+  const dimensions = [...value.matchAll(/(\d+(?:\.\d+)?)\s*(mm|cm|m|ft|feet|')?/gi)];
+  if (dimensions.length < 2) return { width: 2, height: 4 };
+
+  const defaultUnit =
+    dimensions.find((dimension) => dimension[2])?.[2]?.toLowerCase() ?? "mm";
+  const toFeet = (dimension) => {
+    const amount = Number(dimension[1]);
+    const unit = (dimension[2] || defaultUnit).toLowerCase();
+    if (unit === "mm") return amount / 304.8;
+    if (unit === "cm") return amount / 30.48;
+    if (unit === "m") return amount / 0.3048;
+    return amount;
+  };
+
+  return {
+    width: Math.max(toFeet(dimensions[0]), 0.1),
+    height: Math.max(toFeet(dimensions[1]), 0.1),
+  };
+};
+
+const TiledMaterial = ({
+  imageUrl,
+  tileWidth,
+  tileHeight,
+  repeatWidth,
+  repeatHeight,
+  roughness,
+}) => {
+  const sourceTexture = useLoader(THREE.TextureLoader, imageUrl);
+  const texture = useMemo(() => {
+    const repeatedTexture = sourceTexture.clone();
+    repeatedTexture.colorSpace = THREE.SRGBColorSpace;
+    repeatedTexture.wrapS = THREE.RepeatWrapping;
+    repeatedTexture.wrapT = THREE.RepeatWrapping;
+    repeatedTexture.repeat.set(repeatWidth / tileWidth, repeatHeight / tileHeight);
+    repeatedTexture.needsUpdate = true;
+    return repeatedTexture;
+  }, [sourceTexture, repeatWidth, repeatHeight, tileWidth, tileHeight]);
+
+  useEffect(() => () => texture.dispose(), [texture]);
+
+  return (
+    <meshStandardMaterial
+      map={texture}
+      roughness={roughness}
+      metalness={0}
+      side={THREE.DoubleSide}
+    />
+  );
+};
+
+const Sofa = () => (
+  <group position={[0, 0, -2.35]}>
+    <mesh position={[0, 0.64, 0]} castShadow receiveShadow>
+      <boxGeometry args={[6.4, 0.8, 2.2]} />
+      <meshStandardMaterial color="#b88768" roughness={0.82} />
+    </mesh>
+    <mesh position={[0, 1.45, -0.78]} castShadow receiveShadow>
+      <boxGeometry args={[6.1, 1.15, 0.65]} />
+      <meshStandardMaterial color="#a87558" roughness={0.86} />
+    </mesh>
+    {[-3.05, 3.05].map((x) => (
+      <mesh key={x} position={[x, 1.12, 0]} castShadow>
+        <boxGeometry args={[0.55, 1.25, 2.25]} />
+        <meshStandardMaterial color="#986c55" roughness={0.88} />
+      </mesh>
+    ))}
+    {[-1.85, 0, 1.85].map((x, index) => (
+      <mesh key={x} position={[x, 1.14, -0.24]} rotation={[0, 0, index === 1 ? 0 : -0.07]} castShadow>
+        <boxGeometry args={[1.65, 0.68, 1.45]} />
+        <meshStandardMaterial color={index === 1 ? "#d3b69c" : "#c69a79"} roughness={0.9} />
+      </mesh>
+    ))}
+    {[-2.55, 2.55].map((x) => (
+      <mesh key={x} position={[x, 0.17, -0.72]} castShadow>
+        <cylinderGeometry args={[0.09, 0.07, 0.34, 12]} />
+        <meshStandardMaterial color="#523c30" roughness={0.55} />
+      </mesh>
+    ))}
+    {[-1.25, 1.25].map((x) => (
+      <mesh key={x} position={[x, 1.52, -0.38]} rotation={[0, 0, x < 0 ? -0.12 : 0.12]} castShadow>
+        <boxGeometry args={[1.1, 0.9, 0.24]} />
+        <meshStandardMaterial color={x < 0 ? "#e6d9c7" : "#78908a"} roughness={0.96} />
+      </mesh>
+    ))}
+  </group>
+);
+
+const Bed = () => (
+  <group position={[0, 0, -1.9]}>
+    <mesh position={[0, 0.28, 0]} castShadow receiveShadow>
+      <boxGeometry args={[6.2, 0.48, 7.1]} />
+      <meshStandardMaterial color="#6f5548" roughness={0.65} />
+    </mesh>
+    <mesh position={[0, 0.72, 0.05]} castShadow receiveShadow>
+      <boxGeometry args={[5.8, 0.55, 6.75]} />
+      <meshStandardMaterial color="#f3eee6" roughness={0.96} />
+    </mesh>
+    <mesh position={[0, 1.04, 1.15]} castShadow>
+      <boxGeometry args={[5.8, 0.16, 4.4]} />
+      <meshStandardMaterial color="#c9a98d" roughness={0.92} />
+    </mesh>
+    <mesh position={[0, 0.65, -3.72]} castShadow>
+      <boxGeometry args={[6.35, 1.5, 0.38]} />
+      <meshStandardMaterial color="#755a4d" roughness={0.67} />
+    </mesh>
+    {[-1.45, 1.45].map((x) => (
+      <mesh key={x} position={[x, 1.08, -2.63]} castShadow>
+        <boxGeometry args={[2.1, 0.28, 1.15]} />
+        <meshStandardMaterial color="#fffaf2" roughness={0.98} />
+      </mesh>
+    ))}
+    <mesh position={[0, 1.16, -0.4]} castShadow>
+      <boxGeometry args={[5.5, 0.14, 2.1]} />
+      <meshStandardMaterial color="#82918b" roughness={0.94} />
+    </mesh>
+    {[-2.55, 2.55].map((x) => (
+      <mesh key={x} position={[x, 0.12, -3.22]} castShadow>
+        <cylinderGeometry args={[0.08, 0.08, 0.24, 12]} />
+        <meshStandardMaterial color="#4e3b30" roughness={0.55} />
+      </mesh>
+    ))}
+  </group>
+);
+
+const BathroomFixtures = () => (
+  <group>
+    <mesh position={[-2.85, 0.56, -3.15]} castShadow receiveShadow>
+      <boxGeometry args={[3, 1.05, 1.35]} />
+      <meshStandardMaterial color="#9a7b63" roughness={0.42} />
+    </mesh>
+    <mesh position={[-2.85, 1.12, -3.15]} castShadow receiveShadow>
+      <boxGeometry args={[3.18, 0.14, 1.48]} />
+      <meshStandardMaterial color="#f5f1e9" roughness={0.2} />
+    </mesh>
+    <mesh position={[-2.85, 1.22, -3.03]} castShadow>
+      <boxGeometry args={[1.55, 0.16, 0.82]} />
+      <meshStandardMaterial color="#fffefa" roughness={0.18} />
+    </mesh>
+    <mesh position={[-2.85, 1.31, -3.03]} castShadow>
+      <boxGeometry args={[1.08, 0.06, 0.54]} />
+      <meshStandardMaterial color="#d8e4e5" roughness={0.15} metalness={0.12} />
+    </mesh>
+    <mesh position={[-2.85, 1.48, -3.52]} castShadow>
+      <cylinderGeometry args={[0.045, 0.045, 0.36, 12]} />
+      <meshStandardMaterial color="#c4a66c" metalness={0.78} roughness={0.22} />
+    </mesh>
+    <mesh position={[-2.85, 2.72, -4.37]} castShadow>
+      <boxGeometry args={[2.35, 1.72, 0.12]} />
+      <meshStandardMaterial color="#c3a878" metalness={0.72} roughness={0.24} />
+    </mesh>
+    <mesh position={[-2.85, 2.72, -4.28]}>
+      <boxGeometry args={[2.12, 1.49, 0.035]} />
+      <meshStandardMaterial
+        color="#a9c3c7"
+        metalness={0.72}
+        roughness={0.12}
+        emissive="#54747c"
+        emissiveIntensity={0.12}
+      />
+    </mesh>
+
+    <mesh position={[2.55, 0.13, -2.75]} receiveShadow castShadow>
+      <boxGeometry args={[3.5, 0.26, 3.15]} />
+      <meshStandardMaterial color="#f5f2ed" roughness={0.24} />
+    </mesh>
+    <mesh position={[2.55, 0.33, -2.75]} castShadow>
+      <boxGeometry args={[3.15, 0.2, 2.85]} />
+      <meshStandardMaterial color="#e8f0f0" roughness={0.16} metalness={0.08} />
+    </mesh>
+    {[-1.12, 1.12].map((x) => (
+      <mesh key={`shower-frame-${x}`} position={[2.55 + x, 2.85, -1.12]}>
+        <boxGeometry args={[0.045, 5.1, 0.045]} />
+        <meshStandardMaterial color="#c3a878" metalness={0.8} roughness={0.2} />
+      </mesh>
+    ))}
+    <mesh position={[2.55, 2.85, -1.12]}>
+      <boxGeometry args={[2.28, 5.1, 0.035]} />
+      <meshPhysicalMaterial
+        color="#d7e7e8"
+        roughness={0.08}
+        metalness={0.04}
+        transmission={0.78}
+        transparent
+        opacity={0.28}
+        side={THREE.DoubleSide}
+      />
+    </mesh>
+    <mesh position={[2.55, 5.25, -3.1]} castShadow>
+      <cylinderGeometry args={[0.48, 0.48, 0.1, 24]} />
+      <meshStandardMaterial color="#c3a878" metalness={0.78} roughness={0.18} />
+    </mesh>
+    <mesh position={[2.55, 4.55, -3.12]}>
+      <cylinderGeometry args={[0.035, 0.035, 1.4, 12]} />
+      <meshStandardMaterial color="#c3a878" metalness={0.8} roughness={0.2} />
+    </mesh>
+    <mesh position={[2.55, 3.9, -3.12]}>
+      <sphereGeometry args={[0.09, 16, 12]} />
+      <meshStandardMaterial color="#c3a878" metalness={0.78} roughness={0.22} />
+    </mesh>
+    <mesh position={[1.38, 1.55, -3.8]} castShadow>
+      <boxGeometry args={[0.08, 1.05, 0.08]} />
+      <meshStandardMaterial color="#c3a878" metalness={0.75} roughness={0.23} />
+    </mesh>
+    <mesh position={[1.68, 1.55, -3.8]} castShadow>
+      <boxGeometry args={[0.08, 1.05, 0.08]} />
+      <meshStandardMaterial color="#c3a878" metalness={0.75} roughness={0.23} />
+    </mesh>
+    <mesh position={[1.53, 2.08, -3.8]} castShadow>
+      <boxGeometry args={[0.38, 0.08, 0.08]} />
+      <meshStandardMaterial color="#c3a878" metalness={0.75} roughness={0.23} />
+    </mesh>
+
+    <group position={[-1.65, 0, 1.35]}>
+      <mesh position={[0, 0.18, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[0.72, 0.78, 0.36, 28]} />
+        <meshStandardMaterial color="#e9e6df" roughness={0.3} />
+      </mesh>
+      <mesh position={[0, 0.42, -0.38]} castShadow>
+        <boxGeometry args={[0.62, 0.68, 0.56]} />
+        <meshStandardMaterial color="#f6f4ef" roughness={0.26} />
+      </mesh>
+      <mesh position={[0, 0.78, -0.57]} castShadow>
+        <boxGeometry args={[0.74, 0.14, 0.18]} />
+        <meshStandardMaterial color="#fffefa" roughness={0.2} />
+      </mesh>
+      <mesh position={[0, 1.3, -0.7]}>
+        <boxGeometry args={[0.42, 0.58, 0.05]} />
+        <meshStandardMaterial color="#d3e3e4" roughness={0.2} metalness={0.25} />
+      </mesh>
+      <mesh position={[0, 0.98, -0.55]}>
+        <cylinderGeometry args={[0.055, 0.055, 0.4, 12]} />
+        <meshStandardMaterial color="#c3a878" metalness={0.8} roughness={0.2} />
+      </mesh>
+    </group>
+
+    <group position={[-4.3, 0, -0.25]}>
+      <mesh position={[0, 1.5, 0]} castShadow>
+        <cylinderGeometry args={[0.52, 0.48, 0.8, 20]} />
+        <meshStandardMaterial color="#d9d2c8" roughness={0.68} />
+      </mesh>
+      {[0, 1, 2, 3].map((index) => (
+        <mesh
+          key={`plant-leaf-${index}`}
+          position={[
+            Math.sin(index * Math.PI / 2) * 0.38,
+            2.3 + (index % 2) * 0.22,
+            Math.cos(index * Math.PI / 2) * 0.3,
+          ]}
+          rotation={[0.28, index * Math.PI / 2, -0.32]}
+          castShadow
+        >
+          <coneGeometry args={[0.18, 1.05, 8]} />
+          <meshStandardMaterial color={index % 2 ? "#63826b" : "#829477"} roughness={0.88} />
+        </mesh>
+      ))}
+    </group>
+  </group>
+);
+
+const CoffeeTable = () => (
+  <group position={[0, 0, 1.1]}>
+    <mesh position={[0, 0.72, 0]} castShadow>
+      <boxGeometry args={[4.1, 0.17, 2.15]} />
+      <meshStandardMaterial color="#8a6650" roughness={0.5} />
+    </mesh>
+    {[-1.65, 1.65].flatMap((x) =>
+      [-0.75, 0.75].map((z) => (
+        <mesh key={`${x}-${z}`} position={[x, 0.36, z]} castShadow>
+          <cylinderGeometry args={[0.055, 0.07, 0.68, 10]} />
+          <meshStandardMaterial color="#574236" roughness={0.55} />
+        </mesh>
+      ))
+    )}
+    <mesh position={[0.35, 0.86, 0]} castShadow>
+      <cylinderGeometry args={[0.19, 0.17, 0.2, 20]} />
+      <meshStandardMaterial color="#b98c67" roughness={0.58} />
+    </mesh>
+    <mesh position={[0.35, 1.06, 0]} castShadow>
+      <sphereGeometry args={[0.17, 16, 12]} />
+      <meshStandardMaterial color="#71816a" roughness={0.9} />
+    </mesh>
+  </group>
+);
+
+const SideTable = ({ position }) => (
+  <group position={position}>
+    <mesh position={[0, 0.78, 0]} castShadow>
+      <boxGeometry args={[1.65, 0.15, 1.35]} />
+      <meshStandardMaterial color="#916e55" roughness={0.58} />
+    </mesh>
+    <mesh position={[0, 0.4, 0]} castShadow>
+      <boxGeometry args={[1.4, 0.72, 1.1]} />
+      <meshStandardMaterial color="#b18a6d" roughness={0.65} />
+    </mesh>
+    <mesh position={[0, 1.12, 0]} castShadow>
+      <cylinderGeometry args={[0.12, 0.22, 0.48, 16]} />
+      <meshStandardMaterial color="#d7c4a8" roughness={0.68} />
+    </mesh>
+    <mesh position={[0, 1.48, 0]} castShadow>
+      <sphereGeometry args={[0.28, 20, 16]} />
+      <meshStandardMaterial color="#f5dc9e" emissive="#8d6330" emissiveIntensity={0.22} />
+    </mesh>
+  </group>
+);
+
+const LivingRoomFurniture = () => (
+  <group>
+    <mesh position={[0, 0.04, -0.2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+      <planeGeometry args={[9.4, 7.2]} />
+      <meshStandardMaterial color="#d7c4af" roughness={0.97} />
+    </mesh>
+    <Sofa />
+    <CoffeeTable />
+    <SideTable position={[-4.05, 0, -2.1]} />
+    <SideTable position={[4.05, 0, -2.1]} />
+    <mesh position={[0, 2.6, -6.42]} castShadow>
+      <boxGeometry args={[5.4, 2.1, 0.22]} />
+      <meshStandardMaterial color="#806858" roughness={0.72} />
+    </mesh>
+    <mesh position={[0, 2.62, -6.28]}>
+      <boxGeometry args={[4.9, 1.75, 0.04]} />
+      <meshStandardMaterial color="#9caa9f" roughness={0.95} />
+    </mesh>
+  </group>
+);
+
+const BedroomFurniture = () => (
+  <group>
+    <mesh position={[0, 0.04, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+      <planeGeometry args={[9.8, 9.4]} />
+      <meshStandardMaterial color="#d5c2ae" roughness={0.98} />
+    </mesh>
+    <Bed />
+    <SideTable position={[-4.15, 0, -3.25]} />
+    <SideTable position={[4.15, 0, -3.25]} />
+    <mesh position={[0, 2.6, -5.85]} castShadow>
+      <boxGeometry args={[5.2, 2.15, 0.18]} />
+      <meshStandardMaterial color="#b9987e" roughness={0.78} />
+    </mesh>
+  </group>
+);
+
+const AnimatedRoom = ({ room, children }) => {
+  const group = useRef();
+  const elapsed = useRef(0);
+
+  useEffect(() => {
+    elapsed.current = 0;
+  }, [room]);
+
+  useFrame((_, delta) => {
+    if (!group.current) return;
+    elapsed.current = Math.min(elapsed.current + delta, 0.85);
+    const progress = 1 - Math.pow(1 - elapsed.current / 0.85, 3);
+    group.current.position.y = (1 - progress) * -0.65;
+    group.current.scale.setScalar(0.94 + progress * 0.06);
+  });
+
+  return (
+    <group ref={group} key={room}>
+      {children}
+    </group>
+  );
+};
+
+const Room = ({ tile, room, surface }) => {
+  const tileSize = useMemo(() => getTileDimensions(tile.size), [tile.size]);
+  const roughness = /(matte|mat\b|satin)/i.test(
+    `${tile.finish ?? ""} ${tile.description ?? ""}`
+  )
+    ? 0.78
+    : 0.24;
+  const wallColor = room === "bathroom" ? "#dedbd3" : "#d8d1c7";
+  const textureProps = {
+    imageUrl: tile.imageUrl,
+    tileWidth: tileSize.width,
+    tileHeight: tileSize.height,
+    roughness,
+  };
+
+  return (
+    <AnimatedRoom room={room}>
+      <mesh
+        position={[0, 0, 0]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        receiveShadow
+      >
+        <planeGeometry args={[ROOM_TEMPLATES[room].width, ROOM_TEMPLATES[room].depth]} />
+        {surface !== "walls" ? (
+          <TiledMaterial
+            {...textureProps}
+            repeatWidth={ROOM_TEMPLATES[room].width}
+            repeatHeight={ROOM_TEMPLATES[room].depth}
+          />
+        ) : (
+          <meshStandardMaterial color="#c7c1b7" roughness={0.86} />
+        )}
+      </mesh>
+
+      <mesh
+        position={[0, ROOM_TEMPLATES[room].height / 2, -ROOM_TEMPLATES[room].depth / 2]}
+        receiveShadow
+      >
+        <planeGeometry args={[ROOM_TEMPLATES[room].width, ROOM_TEMPLATES[room].height]} />
+        {surface !== "floor" ? (
+          <TiledMaterial
+            {...textureProps}
+            repeatWidth={ROOM_TEMPLATES[room].width}
+            repeatHeight={ROOM_TEMPLATES[room].height}
+          />
+        ) : (
+          <meshStandardMaterial color={wallColor} roughness={0.88} />
+        )}
+      </mesh>
+
+      <mesh
+        position={[-ROOM_TEMPLATES[room].width / 2, ROOM_TEMPLATES[room].height / 2, 0]}
+        rotation={[0, Math.PI / 2, 0]}
+        receiveShadow
+      >
+        <planeGeometry args={[ROOM_TEMPLATES[room].depth, ROOM_TEMPLATES[room].height]} />
+        {surface !== "floor" ? (
+          <TiledMaterial
+            {...textureProps}
+            repeatWidth={ROOM_TEMPLATES[room].depth}
+            repeatHeight={ROOM_TEMPLATES[room].height}
+          />
+        ) : (
+          <meshStandardMaterial color={wallColor} roughness={0.88} />
+        )}
+      </mesh>
+
+      <mesh
+        position={[ROOM_TEMPLATES[room].width / 2, ROOM_TEMPLATES[room].height / 2, 0]}
+        rotation={[0, -Math.PI / 2, 0]}
+        receiveShadow
+      >
+        <planeGeometry args={[ROOM_TEMPLATES[room].depth, ROOM_TEMPLATES[room].height]} />
+        {surface !== "floor" ? (
+          <TiledMaterial
+            {...textureProps}
+            repeatWidth={ROOM_TEMPLATES[room].depth}
+            repeatHeight={ROOM_TEMPLATES[room].height}
+          />
+        ) : (
+          <meshStandardMaterial color={wallColor} roughness={0.88} />
+        )}
+      </mesh>
+      {room === "living" && <LivingRoomFurniture />}
+      {room === "bedroom" && <BedroomFurniture />}
+      {room === "bathroom" && <BathroomFixtures />}
+    </AnimatedRoom>
+  );
+};
+
+const PreviewLoadingFallback = () => (
+  <mesh position={[0, 2, 0]}>
+    <boxGeometry args={[4, 0.08, 4]} />
+    <meshStandardMaterial color="#a46d45" wireframe />
+  </mesh>
+);
+
+class VisualizerErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error) {
+    console.error("Unable to render the tile visualizer:", error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="tile-visualizer-error" role="alert">
+          The 3D preview could not be loaded. Please return to the gallery and try
+          another product image.
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+const TileVisualizer = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const tile = location.state?.tile;
+  const [room, setRoom] = useState("living");
+  const [surface, setSurface] = useState(
+    tile?.type === "wall" ? "walls" : "floor"
+  );
+  const backToGallery = () => {
+    if (window.history.state?.idx > 0) {
+      navigate(-1);
+    } else {
+      navigate(COLLECTION_PATH);
+    }
+  };
+
+  if (!tile?.imageUrl) {
+    return (
+      <main className="tile-visualizer-page">
+        <button className="tile-visualizer-back" onClick={backToGallery} type="button">
+          ← Back to products
+        </button>
+        <p className="tile-visualizer-error" role="alert">
+          This preview needs to be opened from a product in the collection gallery.
+        </p>
+      </main>
+    );
+  }
+
+  return (
+    <main className="tile-visualizer-page">
+      <header className="tile-visualizer-toolbar">
+        <div className="tile-visualizer-product">
+          <button className="tile-visualizer-back" onClick={backToGallery} type="button">
+            ← Back to products
+          </button>
+          <div>
+            <span className="tile-visualizer-eyebrow">360° ROOM PREVIEW</span>
+            <h1>{tile.name}</h1>
+            <p>{tile.size}{tile.finish ? ` · ${tile.finish}` : ""}</p>
+          </div>
+        </div>
+        <div className="tile-visualizer-controls">
+          <label>
+            Room
+            <select value={room} onChange={(event) => setRoom(event.target.value)}>
+              {Object.entries(ROOM_TEMPLATES).map(([key, template]) => (
+                <option value={key} key={key}>{template.label}</option>
+              ))}
+            </select>
+          </label>
+          <fieldset className="tile-visualizer-surface">
+            <legend>Apply tile to</legend>
+            {[
+              ["floor", "Floor"],
+              ["walls", "Walls"],
+              ["both", "Both"],
+            ].map(([value, label]) => (
+              <button
+                className={surface === value ? "is-selected" : ""}
+                key={value}
+                onClick={() => setSurface(value)}
+                type="button"
+                aria-pressed={surface === value}
+              >
+                {label}
+              </button>
+            ))}
+          </fieldset>
+        </div>
+      </header>
+
+      <section className="tile-visualizer-stage" aria-label={`${tile.name} 3D room preview`}>
+        <div className="tile-visualizer-scene-label">
+          <span className="tile-visualizer-live-dot" />
+          {ROOM_TEMPLATES[room].label} · {
+            surface === "both"
+              ? "Floor & walls"
+              : surface.charAt(0).toUpperCase() + surface.slice(1)
+          }
+        </div>
+        <div className="tile-visualizer-tile-chip">
+          <img src={tile.imageUrl} alt="" />
+          <span>
+            <strong>{tile.name}</strong>
+            <small>{tile.size} tile</small>
+          </span>
+        </div>
+        <VisualizerErrorBoundary>
+          <Canvas
+            shadows
+            dpr={[1, 2]}
+            camera={{ position: [12, 9, 15], fov: 39, near: 0.1, far: 150 }}
+            gl={{
+              antialias: true,
+              toneMapping: THREE.ACESFilmicToneMapping,
+              outputColorSpace: THREE.SRGBColorSpace,
+            }}
+            onCreated={({ gl }) => {
+              gl.toneMappingExposure = 1.15;
+            }}
+          >
+            <color attach="background" args={["#e7e9e8"]} />
+            <hemisphereLight args={["#fffaf2", "#a99b8b", 1.45]} />
+            <ambientLight intensity={0.62} />
+            <directionalLight
+              position={[7, 15, 9]}
+              intensity={3.2}
+              castShadow
+              shadow-mapSize-width={2048}
+              shadow-mapSize-height={2048}
+              shadow-camera-left={-12}
+              shadow-camera-right={12}
+              shadow-camera-top={14}
+              shadow-camera-bottom={-10}
+              shadow-bias={-0.00015}
+            />
+            <pointLight position={[-5, 7, 5]} intensity={0.9} color="#ffe9ca" />
+            <pointLight position={[5, 6, -4]} intensity={0.72} color="#d7ecff" />
+            {room === "bathroom" && (
+              <>
+                <pointLight position={[-2.8, 5.8, -3.4]} intensity={1.15} color="#fff2d6" />
+                <pointLight position={[2.7, 6.1, -2.7]} intensity={0.9} color="#e8f7ff" />
+              </>
+            )}
+            <Suspense fallback={<PreviewLoadingFallback />}>
+              <Room tile={tile} room={room} surface={surface} />
+            </Suspense>
+            <RoomOrbitControls />
+          </Canvas>
+        </VisualizerErrorBoundary>
+        <p className="tile-visualizer-hint">Drag to look around · scroll to zoom</p>
+      </section>
+      <p className="tile-visualizer-note">
+        Preview only. Tile scale is estimated from the product size and room template.
+      </p>
+    </main>
+  );
+};
+
+export default TileVisualizer;

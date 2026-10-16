@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../api";
 import { useAuth } from "../context/AuthContext";
 import collection from "./data/newCollection.json";
@@ -17,7 +18,7 @@ const featuredCollections = collection.map((item) => ({
   featured_key: String(item.id),
 }));
 
-const CollectionCard = ({ item, isAdmin, onEdit }) => {
+const CollectionCard = ({ item, isAdmin, onEdit, onView }) => {
   const [activeImage, setActiveImage] = useState(0);
   const images = item.images ?? [];
 
@@ -60,6 +61,18 @@ const CollectionCard = ({ item, isAdmin, onEdit }) => {
         {(item.description || item.finish) && (
           <p>{item.description || item.finish}</p>
         )}
+        <button
+          className="collection-visualize-button"
+          type="button"
+          onClick={() =>
+            onView({
+              ...item,
+              imageUrl: images[activeImage] ?? images[0],
+            })
+          }
+        >
+          View in 360°
+        </button>
         {isAdmin && (
           <button
             className="collection-edit-button"
@@ -77,6 +90,7 @@ const CollectionCard = ({ item, isAdmin, onEdit }) => {
 
 const NewCollection = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const isAdmin = user?.userType?.toLowerCase() === "admin";
   const [collections, setCollections] = useState(featuredCollections);
   const [formData, setFormData] = useState(emptyForm);
@@ -436,6 +450,7 @@ const NewCollection = () => {
               item={item}
               isAdmin={isAdmin}
               onEdit={startEditing}
+              onView={(tile) => navigate("/visualizer", { state: { tile } })}
               key={item.featured_key ? `featured-${item.featured_key}` : `collection-${item.id}`}
             />
           ))}
