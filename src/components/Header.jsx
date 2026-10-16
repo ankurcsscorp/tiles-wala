@@ -42,13 +42,15 @@ const Header = () => {
           New Collections
         </Link>
 
-        <Link
-          to="/enquiry"
-          onClick={() => setMenuOpen(false)}
-          className={location.pathname === "/enquiry" ? "active-link" : ""}
-        >
-          Enquiry
-        </Link>
+        {isAdmin && (
+          <Link
+            to="/enquiry"
+            onClick={() => setMenuOpen(false)}
+            className={location.pathname === "/enquiry" ? "active-link" : ""}
+          >
+            Enquiry
+          </Link>
+        )}
 
         <Link
             to="/sales-bonus"
@@ -88,7 +90,8 @@ const Header = () => {
         )}
                 <Link
           to="https://mybillbook.in/store/johnson_tiles_mahua"
-          target="blank"
+          target="_blank"
+          rel="noopener noreferrer"
           onClick={() => setMenuOpen(false)}
           className={location.pathname === "/online-store" ? "active-link" : ""}
         >

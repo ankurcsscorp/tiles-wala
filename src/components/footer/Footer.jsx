@@ -61,10 +61,10 @@ const Footer = () => {
             </Box>
             <Typography variant="body2" sx={{ mb: 1 }}>Follow Us</Typography>
             <Box sx={{ display: "flex", gap: 2 }}>
-              <a href="https://instagram.com" aria-label="Instagram" target="_blank" rel="noopener noreferrer">
+              <a href="https://www.instagram.com/a_and_a_homedecor/" aria-label="Instagram" target="_blank" rel="noopener noreferrer">
                 <Instagram sx={{ color: "#f5f5f5", fontSize: "24px", "&:hover": { color: "#fff" } }} />
               </a>
-              <a href="https://facebook.com" aria-label="Facebook" target="_blank" rel="noopener noreferrer">
+              <a href="https://www.facebook.com/people/A-A-Home-Decor/61561143635001/" aria-label="Facebook" target="_blank" rel="noopener noreferrer">
                 <Facebook sx={{ color: "#f5f5f5", fontSize: "24px", "&:hover": { color: "#fff" } }} />
               </a>
             </Box>
