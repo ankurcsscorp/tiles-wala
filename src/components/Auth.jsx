@@ -1,268 +1,330 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { signInWithPopup, signOut } from "firebase/auth";
-import { auth, googleProvider } from "../firebase";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import "./Auth.css";
 
-const Auth = () => {
+const INITIAL_FORM_DATA = {
+  name: "",
+  mobile: "",
+  password: "",
+  confirmPassword: "",
+  userType: "",
+  areaLocation: "",
+  adminKey: "",
+};
+
+const MISTIRI_USER_TYPES = ["Tile Mistire", "Plumber Mistiri"];
+
+const getHomeForUserType = (userType) => {
+  const normalizedUserType = userType?.toLowerCase();
+  if (normalizedUserType === "admin" || normalizedUserType === "salesperson") {
+    return "/enquiry-management";
+  }
+  return "/";
+};
+
+const Auth = ({
+  onSignupSuccess,
+  onCancel,
+  hideToggle = false,
+  initialMode = "login",
+}) => {
   const navigate = useNavigate();
-  const [isLogin, setIsLogin] = useState(true);
-  const [showAdminKey, setShowAdminKey] = useState(false);
-  const [googleUser, setGoogleUser] = useState(null);
-  
-  const [formData, setFormData] = useState({
-    name: "",
-    mobile: "",
-    password: "",
-    confirmPassword: "",
-    userType: "",
-    adminKey: ""
-  });
-  
+  const location = useLocation();
+  const { login, signup } = useAuth();
+  const [isLogin, setIsLogin] = useState(initialMode === "login");
+  const [formData, setFormData] = useState(INITIAL_FORM_DATA);
   const [errors, setErrors] = useState({});
-  
-  const handleGoogleSignIn = async () => {
-    try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
-      
-      setGoogleUser({
-        name: user.displayName || "",
-        email: user.email || "",
-        photoURL: user.photoURL || ""
-      });
-      
-      setFormData({
-        ...formData,
-        name: user.displayName || ""
-      });
-      
-      setIsLogin(false);
-    } catch (error) {
-      console.error("Google Sign-In Error:", error);
-      alert("Failed to sign in with Google");
-    }
+  const [submitError, setSubmitError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+    setFormData((previous) => ({ ...previous, [name]: value }));
+    setErrors((previous) => ({ ...previous, [name]: "" }));
+    setSubmitError("");
   };
-  
-  const handleGoogleSignOut = async () => {
-    try {
-      await signOut(auth);
-      setGoogleUser(null);
-      setFormData({
-        name: "",
-        mobile: "",
-        password: "",
-        confirmPassword: "",
-        userType: "",
-        adminKey: ""
-      });
-    } catch (error) {
-      console.error("Sign Out Error:", error);
-    }
-  };
-  
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
-    
-    if (name === "userType") {
-      setShowAdminKey(value === "Admin");
-    }
-  };
-  
-  const validateLogin = () => {
+
+  const validateForm = () => {
     const newErrors = {};
-    if (!formData.mobile) newErrors.mobile = "Mobile number is required";
-    if (!formData.password) newErrors.password = "Password is required";
-    return newErrors;
-  };
-  
-  const validateSignup = () => {
-    const newErrors = {};
-    if (!formData.name) newErrors.name = "Name is required";
-    if (!formData.mobile) newErrors.mobile = "Mobile number is required";
-    if (!formData.password) newErrors.password = "Password is required";
-    if (!formData.confirmPassword) newErrors.confirmPassword = "Confirm password is required";
-    if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = "Passwords do not match";
+
+    if (!formData.mobile.trim()) {
+      newErrors.mobile = "Mobile number is required";
     }
-    if (!formData.userType) newErrors.userType = "User type is required";
-    if (formData.userType === "Admin" && formData.adminKey !== "1021") {
-      newErrors.adminKey = "Invalid admin key";
+    if (!formData.password) {
+      newErrors.password = "Password is required";
     }
-    return newErrors;
-  };
-  
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    
-    if (isLogin) {
-      const newErrors = validateLogin();
-      if (Object.keys(newErrors).length > 0) {
-        setErrors(newErrors);
-      } else {
-        console.log("Login successful:", formData);
-        alert("Login successful!");
-      }
-    } else {
-      const newErrors = validateSignup();
-      if (Object.keys(newErrors).length > 0) {
-        setErrors(newErrors);
-      } else {
-        console.log("Signup successful:", formData);
-        console.log("Google User Data:", googleUser);
-        alert("Signup successful!");
-        handleGoogleSignOut();
-      }
-    }
-  };
-  
-  const toggleMode = () => {
-    setIsLogin(!isLogin);
-    setErrors({});
+
     if (!isLogin) {
-      setGoogleUser(null);
+      if (!formData.name.trim()) {
+        newErrors.name = "Name is required";
+      }
+      if (!formData.confirmPassword) {
+        newErrors.confirmPassword = "Confirm password is required";
+      } else if (formData.password !== formData.confirmPassword) {
+        newErrors.confirmPassword = "Passwords do not match";
+      }
+      if (!formData.userType) {
+        newErrors.userType = "User type is required";
+      }
+      if (
+        MISTIRI_USER_TYPES.includes(formData.userType) &&
+        !formData.areaLocation.trim()
+      ) {
+        newErrors.areaLocation = "Area/Location is required";
+      } else if (formData.areaLocation.trim().length > 200) {
+        newErrors.areaLocation = "Area/Location must be 200 characters or fewer";
+      }
+      if (formData.userType === "Admin" && !formData.adminKey.trim()) {
+        newErrors.adminKey = "Admin key is required";
+      }
     }
-    setFormData({
-      name: "",
-      mobile: "",
-      password: "",
-      confirmPassword: "",
-      userType: "",
-      adminKey: ""
-    });
-    setShowAdminKey(false);
+
+    return newErrors;
   };
-  
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setSubmitError("");
+
+    const validationErrors = validateForm();
+    setErrors(validationErrors);
+    if (Object.keys(validationErrors).length > 0) return;
+
+    setSubmitting(true);
+    try {
+      const authenticatedUser = isLogin
+        ? await login({
+            mobile: formData.mobile.trim(),
+            password: formData.password,
+          })
+        : await signup(
+            {
+              name: formData.name.trim(),
+              mobile: formData.mobile.trim(),
+              password: formData.password,
+              userType: formData.userType,
+              ...(MISTIRI_USER_TYPES.includes(formData.userType)
+                ? { areaLocation: formData.areaLocation.trim() }
+                : {}),
+              ...(formData.userType === "Admin"
+                ? { adminKey: formData.adminKey }
+                : {}),
+            },
+            { persistAuth: typeof onSignupSuccess !== "function" }
+          );
+
+      if (!isLogin && typeof onSignupSuccess === "function") {
+        onSignupSuccess(authenticatedUser);
+        return;
+      }
+
+      const requestedPath = location.state?.from?.pathname;
+      navigate(requestedPath || getHomeForUserType(authenticatedUser.userType), {
+        replace: true,
+      });
+    } catch (error) {
+      setSubmitError(
+        error.response?.data?.message ||
+          error.message ||
+          `Unable to ${isLogin ? "sign in" : "sign up"}. Please try again.`
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const toggleMode = () => {
+    const nextMode = !isLogin;
+    setIsLogin(nextMode);
+    setFormData(INITIAL_FORM_DATA);
+    setErrors({});
+    setSubmitError("");
+  };
+
+  const handleCancel = () => {
+    if (typeof onCancel === "function") {
+      onCancel();
+      return;
+    }
+
+    navigate(location.state?.from || -1);
+  };
+
   return (
     <div className="auth-container">
       <div className="auth-box">
         <h2>{isLogin ? "Sign In" : "Sign Up"}</h2>
-        
-        {isLogin && (
-          <div className="google-signin">
-            <button type="button" className="google-btn" onClick={handleGoogleSignIn}>
-              <img 
-                src="https://www.google.com/favicon.ico" 
-                alt="Google" 
-                className="google-icon"
-              />
-              Sign in with Google
-            </button>
-            <p className="or-divider">OR</p>
-          </div>
-        )}
-        
+
         <form onSubmit={handleSubmit}>
-          {!isLogin && googleUser && (
-            <div className="google-info">
-              <img src={googleUser.photoURL} alt="Profile" className="google-profile" />
-              <p>Signed in as: {googleUser.email}</p>
+          {!isLogin && (
+            <div className="form-group">
+              <label htmlFor="auth-name">Name</label>
+              <input
+                id="auth-name"
+                type="text"
+                name="name"
+                autoComplete="name"
+                value={formData.name}
+                onChange={handleChange}
+                placeholder="Enter your name"
+                required
+              />
+              {errors.name && <span className="error">{errors.name}</span>}
             </div>
           )}
-          
-          {!isLogin && (
-            <>
-              <div className="form-group">
-                <label>Name</label>
-                <input
-                  type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  placeholder="Enter your name"
-                />
-                {errors.name && <span className="error">{errors.name}</span>}
-              </div>
-            </>
-          )}
-          
+
           <div className="form-group">
-            <label>Mobile Number</label>
+            <label htmlFor="auth-mobile">Mobile Number</label>
             <input
+              id="auth-mobile"
               type="tel"
               name="mobile"
+              autoComplete="tel"
               value={formData.mobile}
               onChange={handleChange}
               placeholder="Enter mobile number"
+              required
             />
             {errors.mobile && <span className="error">{errors.mobile}</span>}
           </div>
-          
+
           <div className="form-group">
-            <label>Password</label>
+            <label htmlFor="auth-password">Password</label>
             <input
+              id="auth-password"
               type="password"
               name="password"
+              autoComplete={isLogin ? "current-password" : "new-password"}
               value={formData.password}
               onChange={handleChange}
               placeholder="Enter password"
+              required
             />
             {errors.password && <span className="error">{errors.password}</span>}
           </div>
-          
+
           {!isLogin && (
             <>
               <div className="form-group">
-                <label>Confirm Password</label>
+                <label htmlFor="auth-confirm-password">Confirm Password</label>
                 <input
+                  id="auth-confirm-password"
                   type="password"
                   name="confirmPassword"
+                  autoComplete="new-password"
                   value={formData.confirmPassword}
                   onChange={handleChange}
                   placeholder="Confirm password"
+                  required
                 />
-                {errors.confirmPassword && <span className="error">{errors.confirmPassword}</span>}
+                {errors.confirmPassword && (
+                  <span className="error">{errors.confirmPassword}</span>
+                )}
               </div>
-              
+
               <div className="form-group">
-                <label>User Type</label>
+                <label htmlFor="auth-user-type">User Type</label>
                 <select
+                  id="auth-user-type"
                   name="userType"
                   value={formData.userType}
                   onChange={handleChange}
+                  required
                 >
                   <option value="">Select user type</option>
                   <option value="Admin">Admin</option>
                   <option value="Salesperson">Salesperson</option>
-                  <option value="Tile Mistire">Tile Mistire</option>
-                  <option value="Thikedaar">Thikedaar</option>
+                  <option value="Tile Mistire">Tiles Misti</option>
                   <option value="Plumber Mistiri">Plumber Mistiri</option>
                 </select>
-                {errors.userType && <span className="error">{errors.userType}</span>}
+                {errors.userType && (
+                  <span className="error">{errors.userType}</span>
+                )}
               </div>
-              
-              {showAdminKey && (
+
+              {MISTIRI_USER_TYPES.includes(formData.userType) && (
                 <div className="form-group">
-                  <label>Admin Key</label>
+                  <label htmlFor="auth-area-location">Area/Location</label>
                   <input
+                    id="auth-area-location"
+                    type="text"
+                    name="areaLocation"
+                    autoComplete="address-level2"
+                    maxLength={200}
+                    value={formData.areaLocation}
+                    onChange={handleChange}
+                    placeholder="Enter area or location"
+                    required
+                  />
+                  {errors.areaLocation && (
+                    <span className="error">{errors.areaLocation}</span>
+                  )}
+                </div>
+              )}
+
+              {formData.userType === "Admin" && (
+                <div className="form-group">
+                  <label htmlFor="auth-admin-key">Admin Key</label>
+                  <input
+                    id="auth-admin-key"
                     type="password"
                     name="adminKey"
+                    autoComplete="off"
                     value={formData.adminKey}
                     onChange={handleChange}
                     placeholder="Enter admin key"
+                    required
                   />
-                  {errors.adminKey && <span className="error">{errors.adminKey}</span>}
+                  {errors.adminKey && (
+                    <span className="error">{errors.adminKey}</span>
+                  )}
                 </div>
               )}
             </>
           )}
-          
-          <button type="submit" className="auth-btn">
-            {isLogin ? "Sign In" : "Complete Sign Up"}
+
+          {submitError && (
+            <p className="error" role="alert">
+              {submitError}
+            </p>
+          )}
+
+          <button type="submit" className="auth-btn" disabled={submitting}>
+            {submitting
+              ? "Please wait..."
+              : isLogin
+                ? "Sign In"
+                : "Complete Sign Up"}
           </button>
+          {!isLogin && (
+            <button
+              type="button"
+              className="auth-cancel-btn"
+              onClick={handleCancel}
+              disabled={submitting}
+            >
+              Cancel
+            </button>
+          )}
         </form>
-        
-        <p className="toggle-text">
-          {isLogin ? "Don't have an account? " : "Already have an account? "}
-          <button type="button" className="toggle-btn" onClick={toggleMode}>
-            {isLogin ? "Sign Up" : "Sign In"}
-          </button>
-        </p>
+
+        {!hideToggle && (
+          <p className="toggle-text">
+            {isLogin ? "Don't have an account? " : "Already have an account? "}
+            <button
+              type="button"
+              className="toggle-btn"
+              onClick={toggleMode}
+              disabled={submitting}
+            >
+              {isLogin ? "Sign Up" : "Sign In"}
+            </button>
+          </p>
+        )}
       </div>
     </div>
   );
 };
 
 export default Auth;
-

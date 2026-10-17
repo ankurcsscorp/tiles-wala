@@ -28,6 +28,13 @@
     align-items: center;
     gap: 15px;
   }
+
+  .auth-user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: white;
+  }
   
   .header input {
     padding: 6px;
@@ -68,6 +75,10 @@
       gap: 8px;
     }
 
+    .auth-user {
+      gap: 6px;
+    }
+
     .signin-btn {
       padding: 4px 8px;
       font-size: 12px;
@@ -96,4 +107,3 @@
   }
 
   
-

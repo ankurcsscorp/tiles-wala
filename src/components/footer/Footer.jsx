@@ -6,7 +6,7 @@ import { Facebook, Instagram } from "@mui/icons-material";
 const Footer = () => {
   const companyLinks = [
     { name: "Home Page", path: "/" },
-    { name: "Cart", path: "/cart" },
+    { name: "New Collection", path: "/" },
     { name: "About Us", path: "/about" },
     { name: "Contact us", path: "/contact" },
     { name: "FAQs", path: "/faqs" },
@@ -15,14 +15,15 @@ const Footer = () => {
   ];
 
   const featuredProducts = [
-    "Miley 4.5×9.1 Glossy Porcelain Tile",
-    "Rory Mirror in Antique Brass Iron",
-    "Crawford Counter Stool in Brown",
-    "Haverford Rug in Ecru / Mist",
-    "Marmara Ice 60×120 White Polished",
+    "Ceramic Tiles",
+    "Vitrified Tiles",
+    "Wall Tiles",
+    "Floor Tiles",
+    "Digital Tiles",
+    "Carvin Tiles", 
   ];
 
-  const showrooms = ["Southall", "Slough", "Twickenham"];
+  const showrooms = ["Madhaul Chowk Mahua", "Singhrai Mahua", "Hajipur", "Muzaffarpur", "Patna", "Samastipur"];
 
   return (
     <Box component="footer" sx={{ backgroundColor: "#405873", color: "#f5f5f5", py: 6 }}>
@@ -38,25 +39,16 @@ const Footer = () => {
               Address: Madhul Chowk, Mahua, Bihar, India - 844122
             </Typography>
             <Typography variant="body2" sx={{ mb: 1 }}>
-              <a href="tel:+447809670743" style={{ color: "#f5f5f5", textDecoration: "none" }}>Phone: +91 8109961022</a>
+              <a href="tel:+447809670743" style={{ color: "#f5f5f5", textDecoration: "none" }}>Phone: +91 8109961022, +91 8305961384, +91 8151950076</a>
             </Typography>
             <Typography variant="body2" sx={{ mb: 2 }}>
               <a href="mailto:info@tilewala.com" style={{ color: "#f5f5f5", textDecoration: "none" }}>Email: ahomedecor01@gmail.com</a>
             </Typography>
-            <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
-              <TextField
-                placeholder="Enter email"
-                variant="outlined"
-                size="small"
-                sx={{
-                  backgroundColor: "transparent",
-                  border: "1px solid #f5f5f5",
-                  borderRadius: "8px",
-                  input: { color: "#f5f5f5" },
-                  flex: 1,
-                }}
-              />
+            <Box sx={{ display: "flex", gap: 1, mb: 0 }}>
+             <Typography variant="body2" sx={{ mt: 1 , fontSize:14, fontWeight:"bold" }}>ahomedecor01@gmail.com</Typography>
               <Button
+                component={Link}
+                to="/contact"
                 variant="contained"
                 sx={{
                   backgroundColor: "#fff",
@@ -65,15 +57,15 @@ const Footer = () => {
                   textTransform: "none",
                 }}
               >
-                Subscribe
+                Coontact Us
               </Button>
             </Box>
             <Typography variant="body2" sx={{ mb: 1 }}>Follow Us</Typography>
             <Box sx={{ display: "flex", gap: 2 }}>
-              <a href="https://instagram.com" aria-label="Instagram" target="_blank" rel="noopener noreferrer">
+              <a href="https://www.instagram.com/a_and_a_homedecor/" aria-label="Instagram" target="_blank" rel="noopener noreferrer">
                 <Instagram sx={{ color: "#f5f5f5", fontSize: "24px", "&:hover": { color: "#fff" } }} />
               </a>
-              <a href="https://facebook.com" aria-label="Facebook" target="_blank" rel="noopener noreferrer">
+              <a href="https://www.facebook.com/people/A-A-Home-Decor/61561143635001/" aria-label="Facebook" target="_blank" rel="noopener noreferrer">
                 <Facebook sx={{ color: "#f5f5f5", fontSize: "24px", "&:hover": { color: "#fff" } }} />
               </a>
             </Box>

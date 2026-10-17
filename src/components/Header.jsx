@@ -1,37 +1,23 @@
 import React, { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import Points from "./Points";
 import "./Header.css";
 import { Typography } from "@mui/material";
+import { useAuth } from "../context/AuthContext";
 
 const Header = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation(); // Get the current route
-
-  // User flags - in real app, these would come from auth
-  const isLoggedIn = true;
-  const isAdmin = true; // Set to true for admin, false for normal user
-
-  // User data state - this would typically come from auth/context
-  const [userData, setUserData] = useState({
-    name: "John Doe",
-    mobileNumber: "9876543210",
-    totalSaleValue: 50000,
-    date: new Date().toLocaleDateString(),
-  });
-
-  // Calculate points: ₹100 = 3 points
-  const calculatePoints = (saleValue) => {
-    return Math.floor((saleValue || 0) / 100) * 3;
-  };
-
-  const points = calculatePoints(userData.totalSaleValue);
+  const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
 
-  const handlePointsClick = () => {
-    if (isAdmin) {
-      navigate("/points");
-    }
+  const userType = user?.userType?.toLowerCase();
+  const isAdmin = userType === "admin";
+  const canManageEnquiries = isAdmin || userType === "salesperson";
+
+  const handleLogout = () => {
+    logout();
+    setMenuOpen(false);
+    navigate("/");
   };
 
   return (
@@ -55,36 +41,44 @@ const Header = () => {
         >
           New Collections
         </Link>
-        <Link
-          to="https://mybillbook.in/store/johnson_tiles_mahua"
-          target="blank"
-          onClick={() => setMenuOpen(false)}
-          className={location.pathname === "/online-store" ? "active-link" : ""}
-        >
-          Online Store
-        </Link>
-        <Link
-          to="/contact"
-          onClick={() => setMenuOpen(false)}
-          className={location.pathname === "/contact" ? "active-link" : ""}
-        >
-          Contact
-        </Link>
-        <Link
-          to="/enquiry"
-          onClick={() => setMenuOpen(false)}
-          className={location.pathname === "/enquiry" ? "active-link" : ""}
-        >
-          Enquiry
-        </Link>
+
+        {!isAuthenticated && (
+          <Link
+            to="/contact"
+            onClick={() => setMenuOpen(false)}
+            className={location.pathname === "/contact" ? "active-link" : ""}
+          >
+            Contact Us
+          </Link>
+        )}
+
+        {isAdmin && (
+          <Link
+            to="/enquiry"
+            onClick={() => setMenuOpen(false)}
+            className={location.pathname === "/enquiry" ? "active-link" : ""}
+          >
+            Enquiry
+          </Link>
+        )}
+
+        {isAuthenticated && (
+          <Link
+            to="/sales-bonus"
+            onClick={() => setMenuOpen(false)}
+            className={location.pathname === "/sales-bonus" ? "active-link" : ""}
+          >
+            Sales Bonus
+          </Link>
+        )}
         {isAdmin && (
           <>
           <Link
-            to="/points"
+            to="/sales-bonus-management"
             onClick={() => setMenuOpen(false)}
-            className={location.pathname === "/points" ? "active-link" : ""}
+            className={location.pathname === "/sales-bonus-management" ? "active-link" : ""}
           >
-            Points Management
+            Sales Bonus Management
           </Link>
           
           <Link
@@ -96,24 +90,38 @@ const Header = () => {
         </Link>
         </>
         )}
+        {canManageEnquiries && !isAdmin && (
+        <Link
+          to="/enquiry-management"
+          onClick={() => setMenuOpen(false)}
+          className={location.pathname === "/enquiry-management" ? "active-link" : ""}
+        >
+          Enquiry Management
+        </Link>
+        
+        )}
+                <Link
+          to="https://mybillbook.in/store/johnson_tiles_mahua"
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => setMenuOpen(false)}
+          className={location.pathname === "/online-store" ? "active-link" : ""}
+        >
+          Online Store
+        </Link>
 
       </div>
 
       <div className="header-right">
-        {isLoggedIn ? (
-          <div
-            className={`points-clickable ${isAdmin ? "admin-points" : ""}`}
-            onClick={handlePointsClick}
-          >
-            <Points
-              name={userData.name}
-              mobileNumber={userData.mobileNumber}
-              totalSaleValue={userData.totalSaleValue}
-              date={userData.date}
-              points={points}
-              isAdmin={isAdmin}
-            />
-          </div>
+        {isAuthenticated ? (
+        <div className="auth-user">
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            {user?.name || user?.mobile}
+          </Typography>
+          <button className="signin-btn" onClick={handleLogout}>
+            Sign Out
+          </button>
+        </div>
         ) : (
           <button className="signin-btn" onClick={() => navigate("/auth")}>
             Sign In
