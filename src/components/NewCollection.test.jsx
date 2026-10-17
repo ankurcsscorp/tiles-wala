@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import api from "../api";
 import { useAuth } from "../context/AuthContext";
+import featuredCollections from "./data/newCollection.json";
 import NewCollection from "./NewCollection";
 
 jest.mock("../api", () => ({
@@ -22,11 +23,47 @@ const savedCollection = {
   featured_key: null,
 };
 
+const originalImage = window.Image;
+let pendingImages;
+let autoCompleteImages;
+let failImages;
+
 beforeEach(() => {
+  pendingImages = [];
+  autoCompleteImages = true;
+  failImages = false;
+  window.Image = class {
+    constructor() {
+      this.complete = false;
+      this.naturalWidth = 0;
+      this.onload = null;
+      this.onerror = null;
+    }
+
+    set src(value) {
+      this.source = value;
+      pendingImages.push(this);
+      if (autoCompleteImages) {
+        Promise.resolve().then(() => {
+          if (failImages) {
+            this.onerror?.();
+          } else {
+            this.complete = true;
+            this.naturalWidth = 100;
+            this.onload?.();
+          }
+        });
+      }
+    }
+  };
   api.get.mockResolvedValue({ data: [savedCollection] });
   api.post.mockResolvedValue({ data: savedCollection });
   api.put.mockResolvedValue({ status: 200, data: savedCollection });
   useAuth.mockReturnValue({ user: null });
+});
+
+afterEach(() => {
+  window.Image = originalImage;
 });
 
 const renderCollection = () =>
@@ -45,6 +82,59 @@ test("shows saved collections to visitors without admin controls", async () => {
   expect(await screen.findByRole("heading", { name: "Calacatta Gold" })).toBeInTheDocument();
   expect(screen.getByText("A warm marble look.")).toBeInTheDocument();
   expect(screen.queryByRole("heading", { name: "Add a tile collection" })).not.toBeInTheDocument();
+});
+
+test("shows an image loader until the product image is ready", async () => {
+  renderCollection();
+
+  const image = await screen.findByAltText("Calacatta Gold tile design");
+  const imageFrame = image.closest(".collection-main-image-frame");
+  expect(imageFrame).toHaveAttribute("aria-busy", "true");
+
+  fireEvent.load(image);
+
+  expect(imageFrame).toHaveAttribute("aria-busy", "false");
+  expect(image).toHaveClass("is-loaded");
+});
+
+test("blocks the page with a full-page loader until the gallery images load", async () => {
+  autoCompleteImages = false;
+  renderCollection();
+
+  expect(screen.getByRole("status")).toHaveTextContent(
+    "Loading the collection and product images"
+  );
+  const expectedImageRequests = new Set([
+    ...featuredCollections.flatMap((item) => item.images),
+    ...savedCollection.images,
+  ]).size;
+  await waitFor(() => {
+    expect(pendingImages.length).toBeGreaterThanOrEqual(expectedImageRequests * 2 - 1);
+  });
+
+  pendingImages.forEach((image) => {
+    image.complete = true;
+    image.naturalWidth = 100;
+    image.onload?.();
+  });
+
+  expect(await screen.findByRole("heading", { name: "Calacatta Gold" })).toBeInTheDocument();
+  expect(screen.queryByRole("status")).not.toBeInTheDocument();
+});
+
+test("shows a page-level retry action if an image fails to load", async () => {
+  failImages = true;
+  renderCollection();
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Some product images could not be loaded"
+  );
+  expect(screen.queryByText("Image unavailable")).not.toBeInTheDocument();
+
+  failImages = false;
+  fireEvent.click(screen.getByRole("button", { name: "Retry loading images" }));
+
+  expect(await screen.findByRole("heading", { name: "Calacatta Gold" })).toBeInTheDocument();
 });
 
 test("shows the collection upload form to admins", async () => {
@@ -70,7 +160,7 @@ test("publishes all pictures selected in separate batches", async () => {
   api.post.mockResolvedValue({ data: postedCollection });
   renderCollection();
 
-  fireEvent.change(screen.getByLabelText("Collection name"), {
+  fireEvent.change(await screen.findByLabelText("Collection name"), {
     target: { value: "New Marble" },
   });
   fireEvent.change(screen.getByLabelText("Tile size"), {

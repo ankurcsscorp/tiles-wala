@@ -94,6 +94,7 @@ const SalesBonusManagement = () => {
   const [catalogRefreshKey, setCatalogRefreshKey] = useState(0);
   const [activeTab, setActiveTab] = useState(0);
   const [rows, setRows] = useState([]);
+  const [activeRowId, setActiveRowId] = useState(null);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [submitSuccess, setSubmitSuccess] = useState("");
@@ -329,16 +330,25 @@ const SalesBonusManagement = () => {
   };
 
   const addRow = () => {
-    setRows((currentRows) => [...currentRows, createEmptyRow(productCatalog)]);
+    const newRow = createEmptyRow(productCatalog);
+    setRows((currentRows) => [...currentRows, newRow]);
+    setActiveRowId(newRow.id);
   };
 
   const removeRow = (rowId) => {
-    setRows((currentRows) => {
-      if (currentRows.length === 1) {
-        return [createEmptyRow(productCatalog)];
-      }
-      return currentRows.filter((row) => row.id !== rowId);
-    });
+    const rowIndex = rows.findIndex((row) => row.id === rowId);
+    const remainingRows = rows.filter((row) => row.id !== rowId);
+    if (!remainingRows.length) {
+      const emptyRow = createEmptyRow(productCatalog);
+      setRows([emptyRow]);
+      setActiveRowId(emptyRow.id);
+      return;
+    }
+
+    setRows(remainingRows);
+    if (activeRowId === rowId) {
+      setActiveRowId(remainingRows[Math.min(rowIndex, remainingRows.length - 1)].id);
+    }
   };
 
   const handleSubmit = async () => {
@@ -402,7 +412,9 @@ const SalesBonusManagement = () => {
       setSelectedUser(null);
       setUserSearch("");
       setUserOptions([]);
-      setRows([createEmptyRow(productCatalog)]);
+      const emptyRow = createEmptyRow(productCatalog);
+      setRows([emptyRow]);
+      setActiveRowId(emptyRow.id);
       setTotalAmountPaid("0.00");
       setPaymentMethod("CASH");
       setIsFullyPaid(false);
@@ -606,7 +618,32 @@ const SalesBonusManagement = () => {
                   {rows.map((row) => {
                     const computed = calculateRow(row, userType);
                     return (
-                      <TableRow key={row.id}>
+                      <TableRow
+                        key={row.id}
+                        onClick={() => setActiveRowId(row.id)}
+                        onFocusCapture={() => setActiveRowId(row.id)}
+                        sx={{
+                          "& > .MuiTableCell-root": {
+                            transition: "background-color 140ms ease",
+                          },
+                          ...((activeRowId === row.id ||
+                            (!activeRowId && rows[0]?.id === row.id)) && {
+                            "& > .MuiTableCell-root": {
+                              backgroundColor: "#f1f3f5",
+                            },
+                          }),
+                          "&:hover > .MuiTableCell-root": {
+                            backgroundColor:
+                              activeRowId === row.id ||
+                              (!activeRowId && rows[0]?.id === row.id)
+                                ? "#e9ecef"
+                                : "#f8f9fa",
+                          },
+                          "&:focus-within > .MuiTableCell-root": {
+                            backgroundColor: "#e9ecef",
+                          },
+                        }}
+                      >
                         <TableCell sx={{ width: 300, minWidth: 300 }}>
                           <Autocomplete
                             options={productCatalog}

@@ -42,6 +42,16 @@ const Header = () => {
           New Collections
         </Link>
 
+        {!isAuthenticated && (
+          <Link
+            to="/contact"
+            onClick={() => setMenuOpen(false)}
+            className={location.pathname === "/contact" ? "active-link" : ""}
+          >
+            Contact Us
+          </Link>
+        )}
+
         {isAdmin && (
           <Link
             to="/enquiry"
@@ -52,13 +62,15 @@ const Header = () => {
           </Link>
         )}
 
-        <Link
+        {isAuthenticated && (
+          <Link
             to="/sales-bonus"
             onClick={() => setMenuOpen(false)}
             className={location.pathname === "/sales-bonus" ? "active-link" : ""}
           >
             Sales Bonus
           </Link>
+        )}
         {isAdmin && (
           <>
           <Link
