@@ -6,7 +6,7 @@ import { Facebook, Instagram } from "@mui/icons-material";
 const Footer = () => {
   const companyLinks = [
     { name: "Home Page", path: "/" },
-    { name: "Cart", path: "/cart" },
+    { name: "New Collection", path: "/" },
     { name: "About Us", path: "/about" },
     { name: "Contact us", path: "/contact" },
     { name: "FAQs", path: "/faqs" },
@@ -15,14 +15,15 @@ const Footer = () => {
   ];
 
   const featuredProducts = [
-    "Miley 4.5×9.1 Glossy Porcelain Tile",
-    "Rory Mirror in Antique Brass Iron",
-    "Crawford Counter Stool in Brown",
-    "Haverford Rug in Ecru / Mist",
-    "Marmara Ice 60×120 White Polished",
+    "Ceramic Tiles",
+    "Vitrified Tiles",
+    "Wall Tiles",
+    "Floor Tiles",
+    "Digital Tiles",
+    "Carvin Tiles", 
   ];
 
-  const showrooms = ["Southall", "Slough", "Twickenham"];
+  const showrooms = ["Madhaul Chowk Mahua", "Singhrai Mahua", "Hajipur", "Muzaffarpur", "Patna", "Samastipur"];
 
   return (
     <Box component="footer" sx={{ backgroundColor: "#405873", color: "#f5f5f5", py: 6 }}>
@@ -38,7 +39,7 @@ const Footer = () => {
               Address: Madhul Chowk, Mahua, Bihar, India - 844122
             </Typography>
             <Typography variant="body2" sx={{ mb: 1 }}>
-              <a href="tel:+447809670743" style={{ color: "#f5f5f5", textDecoration: "none" }}>Phone: +91 8109961022</a>
+              <a href="tel:+447809670743" style={{ color: "#f5f5f5", textDecoration: "none" }}>Phone: +91 8109961022, +91 8305961384, +91 8151950076</a>
             </Typography>
             <Typography variant="body2" sx={{ mb: 2 }}>
               <a href="mailto:info@tilewala.com" style={{ color: "#f5f5f5", textDecoration: "none" }}>Email: ahomedecor01@gmail.com</a>

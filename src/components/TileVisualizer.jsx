@@ -17,6 +17,7 @@ const ROOM_TEMPLATES = {
   living: { label: "Living Room", width: 16, depth: 13, height: 9 },
   bedroom: { label: "Bedroom", width: 13, depth: 12, height: 9 },
   bathroom: { label: "Bathroom", width: 10, depth: 9, height: 8 },
+  kitchen: { label: "Kitchen", width: 13, depth: 12, height: 9 },
 };
 
 const getAutoZoomOffset = (elapsed) =>
@@ -499,6 +500,169 @@ const SideTable = ({ position }) => (
   </group>
 );
 
+const KitchenInteriors = () => (
+  <group>
+    <mesh position={[0, 0.055, -0.4]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+      <planeGeometry args={[8.2, 5.8]} />
+      <meshStandardMaterial color="#ded6c9" roughness={0.94} />
+    </mesh>
+
+    <group>
+      <mesh position={[0, 1.05, -5.05]} castShadow receiveShadow>
+        <boxGeometry args={[9.6, 1.75, 1.45]} />
+        <meshStandardMaterial color="#69746e" roughness={0.48} />
+      </mesh>
+      <mesh position={[0, 2.02, -5.05]} castShadow receiveShadow>
+        <boxGeometry args={[9.88, 0.18, 1.62]} />
+        <meshStandardMaterial color="#e8e3da" roughness={0.2} />
+      </mesh>
+      {[-3.55, -2.36, -1.18, 0, 1.18, 2.36, 3.55].map((x) => (
+        <mesh key={`kitchen-lower-door-${x}`} position={[x, 1.04, -4.312]}>
+          <boxGeometry args={[1.1, 1.48, 0.025]} />
+          <meshStandardMaterial color={x % 2 ? "#77837b" : "#818b81"} roughness={0.54} />
+        </mesh>
+      ))}
+      {[-3.55, -2.36, -1.18, 0, 1.18, 2.36, 3.55].map((x) => (
+        <mesh key={`kitchen-lower-handle-${x}`} position={[x + 0.38, 1.1, -4.27]}>
+          <boxGeometry args={[0.045, 0.34, 0.045]} />
+          <meshStandardMaterial color="#b99a68" metalness={0.72} roughness={0.24} />
+        </mesh>
+      ))}
+    </group>
+
+    <group>
+      <mesh position={[-5.35, 1.05, -0.35]} castShadow receiveShadow>
+        <boxGeometry args={[1.45, 1.75, 7.7]} />
+        <meshStandardMaterial color="#69746e" roughness={0.48} />
+      </mesh>
+      <mesh position={[-5.35, 2.02, -0.35]} castShadow receiveShadow>
+        <boxGeometry args={[1.62, 0.18, 7.92]} />
+        <meshStandardMaterial color="#e8e3da" roughness={0.2} />
+      </mesh>
+      {[-3.35, -1.35, 0.65, 2.65].map((z) => (
+        <mesh key={`kitchen-side-door-${z}`} position={[-4.604, 1.04, z]}>
+          <boxGeometry args={[0.025, 1.48, 1.86]} />
+          <meshStandardMaterial color="#77837b" roughness={0.54} />
+        </mesh>
+      ))}
+    </group>
+
+    <mesh position={[0, 3.35, -5.44]} castShadow>
+      <boxGeometry args={[8.9, 1.9, 0.92]} />
+      <meshStandardMaterial color="#d7d0c4" roughness={0.62} />
+    </mesh>
+    {[-3.15, -1.05, 1.05, 3.15].map((x) => (
+      <group key={`kitchen-upper-${x}`}>
+        <mesh position={[x, 3.35, -4.91]} castShadow>
+          <boxGeometry args={[1.96, 1.82, 0.12]} />
+          <meshStandardMaterial color={x % 2 ? "#f0ece4" : "#e8e2d8"} roughness={0.58} />
+        </mesh>
+        <mesh position={[x, 3.35, -4.83]}>
+          <boxGeometry args={[1.78, 1.62, 0.025]} />
+          <meshStandardMaterial color="#f4f0e8" roughness={0.52} />
+        </mesh>
+        <mesh position={[x + 0.66, 3.35, -4.79]}>
+          <boxGeometry args={[0.045, 0.32, 0.045]} />
+          <meshStandardMaterial color="#b99a68" metalness={0.72} roughness={0.24} />
+        </mesh>
+      </group>
+    ))}
+
+    <mesh position={[-1.65, 2.2, -5.03]} castShadow>
+      <boxGeometry args={[2.5, 0.08, 1.2]} />
+      <meshStandardMaterial color="#373a38" roughness={0.28} metalness={0.24} />
+    </mesh>
+    {[[-2.25, -5.17], [-1.05, -5.17]].map(([x, z]) => (
+      <mesh key={`cooktop-ring-${x}`} position={[x, 2.25, z]} rotation={[-Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.3, 0.035, 8, 24]} />
+        <meshStandardMaterial color="#aeb2ad" metalness={0.72} roughness={0.22} />
+      </mesh>
+    ))}
+    <mesh position={[-1.65, 3.12, -5.45]} castShadow>
+      <boxGeometry args={[2.4, 0.16, 0.86]} />
+      <meshStandardMaterial color="#c8c7c1" roughness={0.36} metalness={0.18} />
+    </mesh>
+    <mesh position={[-1.65, 2.7, -5.14]} castShadow>
+      <boxGeometry args={[1.75, 0.78, 0.72]} />
+      <meshStandardMaterial color="#d9d9d5" roughness={0.28} metalness={0.24} />
+    </mesh>
+
+    <mesh position={[2.05, 2.17, -5.01]} castShadow>
+      <boxGeometry args={[1.85, 0.1, 1.28]} />
+      <meshStandardMaterial color="#bfc6c3" roughness={0.22} metalness={0.3} />
+    </mesh>
+    <mesh position={[2.05, 2.18, -5.03]}>
+      <boxGeometry args={[1.25, 0.035, 0.82]} />
+      <meshStandardMaterial color="#59615e" roughness={0.2} metalness={0.34} />
+    </mesh>
+    <mesh position={[2.05, 2.46, -5.28]} castShadow>
+      <cylinderGeometry args={[0.045, 0.045, 0.54, 12]} />
+      <meshStandardMaterial color="#b99a68" metalness={0.78} roughness={0.2} />
+    </mesh>
+    <mesh position={[2.05, 2.72, -5.03]}>
+      <torusGeometry args={[0.23, 0.045, 10, 24, Math.PI]} />
+      <meshStandardMaterial color="#b99a68" metalness={0.78} roughness={0.2} />
+    </mesh>
+
+    <group position={[4.35, 0, -1.7]}>
+      <mesh position={[0, 1.65, 0]} castShadow receiveShadow>
+        <boxGeometry args={[1.8, 3.3, 1.8]} />
+        <meshStandardMaterial color="#d9dedb" roughness={0.24} metalness={0.12} />
+      </mesh>
+      <mesh position={[0.92, 1.75, 0.02]}>
+        <boxGeometry args={[0.025, 2.55, 1.5]} />
+        <meshStandardMaterial color="#9bb5bd" roughness={0.18} metalness={0.12} />
+      </mesh>
+      <mesh position={[0, 2.18, 0.93]}>
+        <boxGeometry args={[0.4, 0.07, 0.035]} />
+        <meshStandardMaterial color="#aeb3af" metalness={0.74} roughness={0.2} />
+      </mesh>
+    </group>
+
+    <group position={[0.2, 0, 0.9]}>
+      <mesh position={[0, 1.88, 0]} castShadow receiveShadow>
+        <boxGeometry args={[4.2, 1.8, 2.15]} />
+        <meshStandardMaterial color="#e8e2d8" roughness={0.5} />
+      </mesh>
+      <mesh position={[0, 2.84, 0]} castShadow receiveShadow>
+        <boxGeometry args={[4.48, 0.16, 2.42]} />
+        <meshStandardMaterial color="#c5b9a7" roughness={0.24} />
+      </mesh>
+      {[-1.35, 0, 1.35].map((x) => (
+        <mesh key={`island-panel-${x}`} position={[x, 1.88, 1.09]}>
+          <boxGeometry args={[1.28, 1.58, 0.025]} />
+          <meshStandardMaterial color="#f0ece4" roughness={0.58} />
+        </mesh>
+      ))}
+      <mesh position={[0.4, 2.98, -0.25]} rotation={[-Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.24, 0.24, 0.035, 20]} />
+        <meshStandardMaterial color="#d59a52" roughness={0.74} />
+      </mesh>
+      <mesh position={[0.4, 3.13, -0.25]}>
+        <sphereGeometry args={[0.16, 16, 12]} />
+        <meshStandardMaterial color="#78906d" roughness={0.82} />
+      </mesh>
+    </group>
+
+    {[-1.1, 1.1].map((x) => (
+      <group key={`kitchen-pendant-${x}`}>
+        <mesh position={[x, 5.8, -3.1]}>
+          <cylinderGeometry args={[0.025, 0.025, 1.5, 8]} />
+          <meshStandardMaterial color="#88765e" metalness={0.55} roughness={0.36} />
+        </mesh>
+        <mesh position={[x, 5.02, -3.1]} castShadow>
+          <coneGeometry args={[0.42, 0.3, 24, 1, true]} />
+          <meshStandardMaterial color="#c4a36d" metalness={0.48} roughness={0.32} side={THREE.DoubleSide} />
+        </mesh>
+        <mesh position={[x, 4.9, -3.1]}>
+          <sphereGeometry args={[0.12, 12, 10]} />
+          <meshStandardMaterial color="#fff0c9" emissive="#ffd98d" emissiveIntensity={0.8} />
+        </mesh>
+      </group>
+    ))}
+  </group>
+);
+
 const LivingRoomFurniture = () => (
   <group>
     <mesh position={[0, 0.04, -0.2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
@@ -645,6 +809,7 @@ const Room = ({ tile, room, surface }) => {
       {room === "living" && <LivingRoomFurniture />}
       {room === "bedroom" && <BedroomFurniture />}
       {room === "bathroom" && <BathroomFixtures />}
+      {room === "kitchen" && <KitchenInteriors />}
     </AnimatedRoom>
   );
 };
@@ -883,6 +1048,12 @@ const TileVisualizer = () => {
               <>
                 <pointLight position={[-2.8, 5.8, -3.4]} intensity={1.15} color="#fff2d6" />
                 <pointLight position={[2.7, 6.1, -2.7]} intensity={0.9} color="#e8f7ff" />
+              </>
+            )}
+            {room === "kitchen" && (
+              <>
+                <pointLight position={[-2.2, 5.3, -3.5]} intensity={1.1} color="#fff1d4" />
+                <pointLight position={[2.4, 5.1, -3.1]} intensity={0.95} color="#fff7e7" />
               </>
             )}
             <Suspense fallback={<PreviewLoadingFallback />}>

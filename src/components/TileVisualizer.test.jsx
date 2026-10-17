@@ -53,6 +53,10 @@ test("shows product specs and room and surface controls", () => {
   expect(screen.getByText("Bathroom · Walls")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Walls" })).toHaveAttribute("aria-pressed", "true");
   expect(screen.getByTestId("three-canvas")).toBeInTheDocument();
+
+  fireEvent.change(screen.getByLabelText("Room"), { target: { value: "kitchen" } });
+  expect(screen.getByLabelText("Room")).toHaveValue("kitchen");
+  expect(screen.getByText("Kitchen · Walls")).toBeInTheDocument();
 });
 
 test("lets the user pause and resume automatic room rotation", () => {
