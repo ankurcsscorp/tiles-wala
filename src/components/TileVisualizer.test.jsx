@@ -7,6 +7,14 @@ jest.mock("@react-three/fiber", () => ({
   useLoader: jest.fn(),
 }));
 
+jest.mock("@react-three/drei/core/Environment", () => ({
+  Environment: () => null,
+}));
+
+jest.mock("@react-three/drei/core/ContactShadows", () => ({
+  ContactShadows: () => null,
+}));
+
 const tile = {
   id: 1,
   name: "Marvilla Blue",

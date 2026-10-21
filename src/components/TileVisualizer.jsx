@@ -7,6 +7,8 @@ import React, {
   useState,
 } from "react";
 import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber";
+import { Environment } from "@react-three/drei/core/Environment";
+import { ContactShadows } from "@react-three/drei/core/ContactShadows";
 import * as THREE from "three";
 import { useLocation, useNavigate } from "react-router-dom";
 import "./TileVisualizer.css";
@@ -33,7 +35,7 @@ const RoomOrbitControls = ({ autoRotate, autoZoom }) => {
   const resumeRotationTimer = useRef(null);
   const zoomElapsed = useRef(0);
   const zoomBaseRadius = useRef(null);
-  const target = useMemo(() => new THREE.Vector3(0, 3.5, -1), []);
+  const target = useMemo(() => new THREE.Vector3(0, 3.8, -1), []);
 
   useEffect(() => {
     const element = gl.domElement;
@@ -49,20 +51,24 @@ const RoomOrbitControls = ({ autoRotate, autoZoom }) => {
       camera.position.copy(nextPosition);
       camera.lookAt(target);
     };
+
     const pauseRotation = () => {
       isInteracting.current = true;
       window.clearTimeout(resumeRotationTimer.current);
     };
+
     const scheduleRotationResume = () => {
       window.clearTimeout(resumeRotationTimer.current);
       resumeRotationTimer.current = window.setTimeout(() => {
         isInteracting.current = false;
       }, 1800);
     };
+
     const measurePinchDistance = () => {
       const [first, second] = [...activePointers.current.values()];
       return Math.hypot(second.x - first.x, second.y - first.y);
     };
+
     const onPointerDown = (event) => {
       if (event.button !== 0) return;
       pauseRotation();
@@ -79,6 +85,7 @@ const RoomOrbitControls = ({ autoRotate, autoZoom }) => {
       }
       element.setPointerCapture?.(event.pointerId);
     };
+
     const onPointerMove = (event) => {
       if (!activePointers.current.has(event.pointerId)) return;
       activePointers.current.set(event.pointerId, {
@@ -86,25 +93,27 @@ const RoomOrbitControls = ({ autoRotate, autoZoom }) => {
         y: event.clientY,
         pointerType: event.pointerType,
       });
+
       if (event.pointerType === "touch" && activePointers.current.size > 1) {
         const nextPinchDistance = measurePinchDistance();
         if (pinchDistance.current > 0 && nextPinchDistance > 0) {
           const previousRadius = spherical.current.radius;
           spherical.current.radius = THREE.MathUtils.clamp(
             previousRadius * (pinchDistance.current / nextPinchDistance),
-            7,
-            32
+            0.5,
+            6.5
           );
           zoomBaseRadius.current = THREE.MathUtils.clamp(
             zoomBaseRadius.current + spherical.current.radius - previousRadius,
-            7,
-            32
+            0.5,
+            6.5
           );
           updateCamera();
         }
         pinchDistance.current = nextPinchDistance;
         return;
       }
+
       if (!dragPosition.current) return;
       const deltaX = event.clientX - dragPosition.current.x;
       const deltaY = event.clientY - dragPosition.current.y;
@@ -112,11 +121,12 @@ const RoomOrbitControls = ({ autoRotate, autoZoom }) => {
       spherical.current.theta -= deltaX * 0.006;
       spherical.current.phi = THREE.MathUtils.clamp(
         spherical.current.phi + deltaY * 0.006,
-        0.2,
-        Math.PI / 2 - 0.04
+        Math.PI * 0.25,
+        Math.PI * 0.72
       );
       updateCamera();
     };
+
     const stopDragging = (event) => {
       activePointers.current.delete(event.pointerId);
       element.releasePointerCapture?.(event.pointerId);
@@ -133,25 +143,26 @@ const RoomOrbitControls = ({ autoRotate, autoZoom }) => {
       if (activePointers.current.size === 0 && zoomBaseRadius.current !== null) {
         zoomBaseRadius.current = THREE.MathUtils.clamp(
           spherical.current.radius - getAutoZoomOffset(zoomElapsed.current),
-          7,
-          32
+          0.5,
+          6.5
         );
         scheduleRotationResume();
       }
     };
+
     const onWheel = (event) => {
       event.preventDefault();
       pauseRotation();
       const previousRadius = spherical.current.radius;
       spherical.current.radius = THREE.MathUtils.clamp(
         spherical.current.radius * (1 + event.deltaY * 0.001),
-        7,
-        32
+        0.5,
+        6.5
       );
       zoomBaseRadius.current = THREE.MathUtils.clamp(
         zoomBaseRadius.current + spherical.current.radius - previousRadius,
-        7,
-        32
+        0.5,
+        6.5
       );
       updateCamera();
       scheduleRotationResume();
@@ -179,13 +190,11 @@ const RoomOrbitControls = ({ autoRotate, autoZoom }) => {
       zoomElapsed.current += delta;
       spherical.current.radius = THREE.MathUtils.clamp(
         zoomBaseRadius.current + getAutoZoomOffset(zoomElapsed.current),
-        7,
-        32
+        0.5,
+        6.5
       );
     }
-    camera.position
-      .setFromSpherical(spherical.current)
-      .add(target);
+    camera.position.setFromSpherical(spherical.current).add(target);
     camera.lookAt(target);
   });
 
@@ -214,6 +223,39 @@ const getTileDimensions = (size) => {
   };
 };
 
+/**
+ * Procedurally generates a grout line and micro-bevel bump map.
+ * White represents the elevated tile surface, dark gray represents recessed grout lines.
+ */
+const createGroutBumpTexture = (aspectRatio = 1) => {
+  const canvas = document.createElement("canvas");
+  const baseSize = 512;
+  canvas.width = baseSize;
+  canvas.height = Math.max(64, Math.round(baseSize / aspectRatio));
+  const ctx = canvas.getContext("2d");
+
+  // Tile surface elevation
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Soft beveled edge
+  const bevelMargin = 6;
+  ctx.lineWidth = bevelMargin;
+  ctx.strokeStyle = "#aaaaaa";
+  ctx.strokeRect(bevelMargin / 2, bevelMargin / 2, canvas.width - bevelMargin, canvas.height - bevelMargin);
+
+  // Recessed grout line groove
+  const groutThickness = 3;
+  ctx.lineWidth = groutThickness;
+  ctx.strokeStyle = "#222222";
+  ctx.strokeRect(0, 0, canvas.width, canvas.height);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  return texture;
+};
+
 const TiledMaterial = ({
   imageUrl,
   tileWidth,
@@ -222,24 +264,54 @@ const TiledMaterial = ({
   repeatHeight,
   roughness,
 }) => {
+  const { gl } = useThree();
   const sourceTexture = useLoader(THREE.TextureLoader, imageUrl);
-  const texture = useMemo(() => {
-    const repeatedTexture = sourceTexture.clone();
-    repeatedTexture.colorSpace = THREE.SRGBColorSpace;
-    repeatedTexture.wrapS = THREE.RepeatWrapping;
-    repeatedTexture.wrapT = THREE.RepeatWrapping;
-    repeatedTexture.repeat.set(repeatWidth / tileWidth, repeatHeight / tileHeight);
-    repeatedTexture.needsUpdate = true;
-    return repeatedTexture;
-  }, [sourceTexture, repeatWidth, repeatHeight, tileWidth, tileHeight]);
 
-  useEffect(() => () => texture.dispose(), [texture]);
+  const { repeatedTexture, bumpTexture } = useMemo(() => {
+    const maxAnisotropy = gl.capabilities.getMaxAnisotropy() || 16;
+    const repX = repeatWidth / tileWidth;
+    const repY = repeatHeight / tileHeight;
+
+    // 1. Tile Base Color Map with Anisotropic Filtering
+    const cloned = sourceTexture.clone();
+    cloned.colorSpace = THREE.SRGBColorSpace;
+    cloned.wrapS = THREE.RepeatWrapping;
+    cloned.wrapT = THREE.RepeatWrapping;
+    cloned.repeat.set(repX, repY);
+    cloned.anisotropy = maxAnisotropy;
+    cloned.generateMipmaps = true;
+    cloned.minFilter = THREE.LinearMipmapLinearFilter;
+    cloned.magFilter = THREE.LinearFilter;
+    cloned.needsUpdate = true;
+
+    // 2. Procedural Grout Line & Micro-Bevel Bump Map
+    const bump = createGroutBumpTexture(tileWidth / tileHeight);
+    bump.repeat.set(repX, repY);
+    bump.anisotropy = maxAnisotropy;
+    bump.generateMipmaps = true;
+    bump.minFilter = THREE.LinearMipmapLinearFilter;
+    bump.magFilter = THREE.LinearFilter;
+    bump.needsUpdate = true;
+
+    return { repeatedTexture: cloned, bumpTexture: bump };
+  }, [sourceTexture, repeatWidth, repeatHeight, tileWidth, tileHeight, gl]);
+
+  useEffect(() => {
+    return () => {
+      repeatedTexture.dispose();
+      bumpTexture.dispose();
+    };
+  }, [repeatedTexture, bumpTexture]);
 
   return (
     <meshStandardMaterial
-      map={texture}
+      map={repeatedTexture}
+      bumpMap={bumpTexture}
+      bumpScale={0.02}
+      roughnessMap={bumpTexture}
       roughness={roughness}
-      metalness={0}
+      metalness={0.02}
+      envMapIntensity={1.3}
       side={THREE.DoubleSide}
     />
   );
@@ -439,11 +511,11 @@ const BathroomFixtures = () => (
         <mesh
           key={`plant-leaf-${index}`}
           position={[
-            Math.sin(index * Math.PI / 2) * 0.38,
+            -Math.sin((index * Math.PI) / 2) * 0.38,
             2.3 + (index % 2) * 0.22,
-            Math.cos(index * Math.PI / 2) * 0.3,
+            -Math.cos((index * Math.PI) / 2) * 0.3,
           ]}
-          rotation={[0.28, index * Math.PI / 2, -0.32]}
+          rotation={[0.28, (index * Math.PI) / 2, -0.32]}
           castShadow
         >
           <coneGeometry args={[0.18, 1.05, 8]} />
@@ -455,15 +527,15 @@ const BathroomFixtures = () => (
 );
 
 const CoffeeTable = () => (
-  <group position={[0, 0, 1.1]}>
+  <group position={[0, 0, -4.55]}>
     <mesh position={[0, 0.72, 0]} castShadow>
       <boxGeometry args={[4.1, 0.17, 2.15]} />
       <meshStandardMaterial color="#8a6650" roughness={0.5} />
     </mesh>
     {[-1.65, 1.65].flatMap((x) =>
       [-0.75, 0.75].map((z) => (
-        <mesh key={`${x}-${z}`} position={[x, 0.36, z]} castShadow>
-          <cylinderGeometry args={[0.055, 0.07, 0.68, 10]} />
+        <mesh key={`${x}-${z}`} position={[x, 0.35, z]} castShadow>
+          <cylinderGeometry args={[0.055, 0.07, 0.7, 10]} />
           <meshStandardMaterial color="#574236" roughness={0.55} />
         </mesh>
       ))
@@ -485,7 +557,7 @@ const SideTable = ({ position }) => (
       <boxGeometry args={[1.65, 0.15, 1.35]} />
       <meshStandardMaterial color="#916e55" roughness={0.58} />
     </mesh>
-    <mesh position={[0, 0.4, 0]} castShadow>
+    <mesh position={[0, 0.36, 0]} castShadow>
       <boxGeometry args={[1.4, 0.72, 1.1]} />
       <meshStandardMaterial color="#b18a6d" roughness={0.65} />
     </mesh>
@@ -669,7 +741,9 @@ const LivingRoomFurniture = () => (
       <planeGeometry args={[9.4, 7.2]} />
       <meshStandardMaterial color="#d7c4af" roughness={0.97} />
     </mesh>
-    <Sofa />
+    <group rotation={[0, Math.PI, 0]}>
+      <Sofa />
+    </group>
     <CoffeeTable />
     <SideTable position={[-4.05, 0, -2.1]} />
     <SideTable position={[4.05, 0, -2.1]} />
@@ -700,6 +774,30 @@ const BedroomFurniture = () => (
   </group>
 );
 
+const RoomWallPanel = ({
+  position,
+  rotation = [0, 0, 0],
+  dimensions,
+  repeatWidth,
+  repeatHeight,
+  textureProps,
+  tiled,
+  wallColor,
+}) => (
+  <mesh position={position} rotation={rotation} receiveShadow>
+    <planeGeometry args={dimensions} />
+    {tiled ? (
+      <TiledMaterial
+        {...textureProps}
+        repeatWidth={repeatWidth}
+        repeatHeight={repeatHeight}
+      />
+    ) : (
+      <meshStandardMaterial color={wallColor} roughness={0.88} />
+    )}
+  </mesh>
+);
+
 const AnimatedRoom = ({ room, children }) => {
   const group = useRef();
   const elapsed = useRef(0);
@@ -728,8 +826,8 @@ const Room = ({ tile, room, surface }) => {
   const roughness = /(matte|mat\b|satin)/i.test(
     `${tile.finish ?? ""} ${tile.description ?? ""}`
   )
-    ? 0.78
-    : 0.24;
+    ? 0.75
+    : 0.14; // Low roughness enables photorealistic gloss reflections
   const wallColor = room === "bathroom" ? "#dedbd3" : "#d8d1c7";
   const textureProps = {
     imageUrl: tile.imageUrl,
@@ -740,11 +838,8 @@ const Room = ({ tile, room, surface }) => {
 
   return (
     <AnimatedRoom room={room}>
-      <mesh
-        position={[0, 0, 0]}
-        rotation={[-Math.PI / 2, 0, 0]}
-        receiveShadow
-      >
+      {/* Floor */}
+      <mesh position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[ROOM_TEMPLATES[room].width, ROOM_TEMPLATES[room].depth]} />
         {surface !== "walls" ? (
           <TiledMaterial
@@ -757,6 +852,18 @@ const Room = ({ tile, room, surface }) => {
         )}
       </mesh>
 
+      {/* Ceiling visible from the interior camera. */}
+      <mesh
+        position={[0, ROOM_TEMPLATES[room].height, 0]}
+        rotation={[Math.PI / 2, 0, 0]}
+      >
+        <planeGeometry
+          args={[ROOM_TEMPLATES[room].width, ROOM_TEMPLATES[room].depth]}
+        />
+        <meshStandardMaterial color="#f4f2ee" roughness={0.92} />
+      </mesh>
+
+      {/* Back Wall */}
       <mesh
         position={[0, ROOM_TEMPLATES[room].height / 2, -ROOM_TEMPLATES[room].depth / 2]}
         receiveShadow
@@ -773,6 +880,7 @@ const Room = ({ tile, room, surface }) => {
         )}
       </mesh>
 
+      {/* Left Wall */}
       <mesh
         position={[-ROOM_TEMPLATES[room].width / 2, ROOM_TEMPLATES[room].height / 2, 0]}
         rotation={[0, Math.PI / 2, 0]}
@@ -790,6 +898,7 @@ const Room = ({ tile, room, surface }) => {
         )}
       </mesh>
 
+      {/* Right Wall */}
       <mesh
         position={[ROOM_TEMPLATES[room].width / 2, ROOM_TEMPLATES[room].height / 2, 0]}
         rotation={[0, -Math.PI / 2, 0]}
@@ -806,6 +915,129 @@ const Room = ({ tile, room, surface }) => {
           <meshStandardMaterial color={wallColor} roughness={0.88} />
         )}
       </mesh>
+
+      {/* Front wall segments leave a real opening for a window. */}
+      {(() => {
+        const roomWidth = ROOM_TEMPLATES[room].width;
+        const roomDepth = ROOM_TEMPLATES[room].depth;
+        const roomHeight = ROOM_TEMPLATES[room].height;
+        const windowWidth = Math.min(5.2, roomWidth * 0.48);
+        const windowBottom = 1.55;
+        const windowTop = roomHeight - 1.2;
+        const sideWidth = (roomWidth - windowWidth) / 2;
+        const frontZ = roomDepth / 2;
+        const tiled = surface !== "floor";
+        const frontWallPanelProps = {
+          rotation: [0, Math.PI, 0],
+          textureProps,
+          tiled,
+          wallColor,
+        };
+
+        return (
+          <group>
+            {[-1, 1].map((side) => (
+              <RoomWallPanel
+                key={`front-wall-side-${side}`}
+                {...frontWallPanelProps}
+                position={[
+                  side * (windowWidth / 2 + sideWidth / 2),
+                  roomHeight / 2,
+                  frontZ,
+                ]}
+                dimensions={[sideWidth, roomHeight]}
+                repeatWidth={sideWidth}
+                repeatHeight={roomHeight}
+              />
+            ))}
+            <RoomWallPanel
+              {...frontWallPanelProps}
+              position={[0, (windowTop + roomHeight) / 2, frontZ]}
+              dimensions={[windowWidth, roomHeight - windowTop]}
+              repeatWidth={windowWidth}
+              repeatHeight={roomHeight - windowTop}
+            />
+            <RoomWallPanel
+              {...frontWallPanelProps}
+              position={[0, windowBottom / 2, frontZ]}
+              dimensions={[windowWidth, windowBottom]}
+              repeatWidth={windowWidth}
+              repeatHeight={windowBottom}
+            />
+
+            <mesh
+              position={[0, (windowBottom + windowTop) / 2, frontZ - 0.06]}
+            >
+              <planeGeometry args={[windowWidth - 0.16, windowTop - windowBottom - 0.16]} />
+              <meshPhysicalMaterial
+                color="#c7e0e8"
+                roughness={0.12}
+                metalness={0.02}
+                transmission={0.82}
+                thickness={0.04}
+                transparent
+                opacity={0.34}
+                side={THREE.DoubleSide}
+              />
+            </mesh>
+            {[-1, 1].map((side) => (
+              <mesh
+                key={`window-frame-side-${side}`}
+                position={[side * windowWidth / 2, (windowBottom + windowTop) / 2, frontZ - 0.12]}
+                castShadow
+              >
+                <boxGeometry args={[0.12, windowTop - windowBottom, 0.16]} />
+                <meshStandardMaterial color="#f5f1e9" roughness={0.68} />
+              </mesh>
+            ))}
+            {[windowBottom, windowTop].map((height) => (
+              <mesh
+                key={`window-frame-horizontal-${height}`}
+                position={[0, height, frontZ - 0.12]}
+                castShadow
+              >
+                <boxGeometry args={[windowWidth, 0.12, 0.16]} />
+                <meshStandardMaterial color="#f5f1e9" roughness={0.68} />
+              </mesh>
+            ))}
+          </group>
+        );
+      })()}
+
+      {/* Realistic contact shadows beneath all furniture onto the tile floor */}
+      <ContactShadows
+        position={[0, 0.008, 0]}
+        opacity={0.65}
+        scale={22}
+        blur={1.6}
+        far={4.5}
+      />
+
+      {/* Low trim frames the tile edge around the room perimeter. */}
+      {[
+        {
+          position: [0, 0.2, -ROOM_TEMPLATES[room].depth / 2 + 0.045],
+          dimensions: [ROOM_TEMPLATES[room].width, 0.4, 0.09],
+        },
+        {
+          position: [0, 0.2, ROOM_TEMPLATES[room].depth / 2 - 0.045],
+          dimensions: [ROOM_TEMPLATES[room].width, 0.4, 0.09],
+        },
+        {
+          position: [-ROOM_TEMPLATES[room].width / 2 + 0.045, 0.2, 0],
+          dimensions: [0.09, 0.4, ROOM_TEMPLATES[room].depth],
+        },
+        {
+          position: [ROOM_TEMPLATES[room].width / 2 - 0.045, 0.2, 0],
+          dimensions: [0.09, 0.4, ROOM_TEMPLATES[room].depth],
+        },
+      ].map(({ position, dimensions }, index) => (
+        <mesh key={`baseboard-${index}`} position={position} castShadow>
+          <boxGeometry args={dimensions} />
+          <meshStandardMaterial color="#8c735e" roughness={0.72} />
+        </mesh>
+      ))}
+
       {room === "living" && <LivingRoomFurniture />}
       {room === "bedroom" && <BedroomFurniture />}
       {room === "bathroom" && <BathroomFixtures />}
@@ -1017,22 +1249,27 @@ const TileVisualizer = () => {
           <Canvas
             shadows
             dpr={[1, 2]}
-            camera={{ position: [12, 9, 15], fov: 39, near: 0.1, far: 150 }}
+            camera={{ position: [0, 4.2, 3.5], fov: 65, near: 0.1, far: 100 }}
             gl={{
               antialias: true,
               toneMapping: THREE.ACESFilmicToneMapping,
               outputColorSpace: THREE.SRGBColorSpace,
             }}
             onCreated={({ gl }) => {
-              gl.toneMappingExposure = 1.15;
+              gl.toneMappingExposure = 1.05;
             }}
           >
             <color attach="background" args={["#e7e9e8"]} />
-            <hemisphereLight args={["#fffaf2", "#a99b8b", 1.45]} />
-            <ambientLight intensity={0.62} />
+
+            {/* HDR Environment reflections for glass, porcelain, and gloss bounce */}
+            <Environment preset="apartment" background={false} environmentIntensity={0.8} />
+
+            <hemisphereLight args={["#fffaf2", "#a99b8b", 1.2]} />
+            <ambientLight intensity={0.45} />
             <directionalLight
               position={[7, 15, 9]}
-              intensity={3.2}
+              intensity={2.8}
+              color="#fff1dc"
               castShadow
               shadow-mapSize-width={2048}
               shadow-mapSize-height={2048}
@@ -1042,20 +1279,21 @@ const TileVisualizer = () => {
               shadow-camera-bottom={-10}
               shadow-bias={-0.00015}
             />
-            <pointLight position={[-5, 7, 5]} intensity={0.9} color="#ffe9ca" />
-            <pointLight position={[5, 6, -4]} intensity={0.72} color="#d7ecff" />
+            <pointLight position={[-5, 7, 5]} intensity={0.7} color="#ffe9ca" />
+            <pointLight position={[5, 6, -4]} intensity={0.5} color="#d7ecff" />
             {room === "bathroom" && (
               <>
-                <pointLight position={[-2.8, 5.8, -3.4]} intensity={1.15} color="#fff2d6" />
-                <pointLight position={[2.7, 6.1, -2.7]} intensity={0.9} color="#e8f7ff" />
+                <pointLight position={[-2.8, 5.8, -3.4]} intensity={0.9} color="#fff2d6" />
+                <pointLight position={[2.7, 6.1, -2.7]} intensity={0.75} color="#e8f7ff" />
               </>
             )}
             {room === "kitchen" && (
               <>
-                <pointLight position={[-2.2, 5.3, -3.5]} intensity={1.1} color="#fff1d4" />
-                <pointLight position={[2.4, 5.1, -3.1]} intensity={0.95} color="#fff7e7" />
+                <pointLight position={[-2.2, 5.3, -3.5]} intensity={0.85} color="#fff1d4" />
+                <pointLight position={[2.4, 5.1, -3.1]} intensity={0.8} color="#fff7e7" />
               </>
             )}
+
             <Suspense fallback={<PreviewLoadingFallback />}>
               <Room tile={tile} room={room} surface={surface} />
             </Suspense>

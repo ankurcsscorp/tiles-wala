@@ -1,70 +1,84 @@
-# Getting Started with Create React App
+# Tiles Wala
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Tiles Wala is a React storefront for browsing tile collections, previewing a selected tile in a 3D room, and supporting customer enquiries and staff sales-bonus workflows.
 
-## Available Scripts
+The frontend is built with Create React App. Its interactive room preview uses React Three Fiber and Three.js; catalog, authentication, enquiry, and sales-bonus data are served by a separate backend.
 
-In the project directory, you can run:
+## Features
 
-### `npm start`
+- Browse featured tile products and open a product in the room visualizer.
+- Preview a tile on the floor, walls, or both surfaces in living room, bedroom, kitchen, and bathroom scenes.
+- Orbit the camera, pause or resume the scene motion, and switch to full-screen preview.
+- Sign in and access role-dependent enquiry and sales-bonus pages.
+- Submit and manage customer enquiries, and view or manage sales-bonus records and products.
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## Requirements
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+- Node.js and npm compatible with the installed `react-scripts` version.
+- The Tiles Wala backend running at `http://localhost:4000/api/tiles` for backend-backed features.
+- Product images referenced by the catalog data. These are served from the frontend's `public` directory.
 
-### `npm test`
+## Getting started
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+From this directory:
 
-### `npm run build`
+```bash
+npm install
+npm start
+```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+The development server opens at [http://localhost:3000](http://localhost:3000). Start the backend separately for authentication, collections, enquiries, and sales-bonus features. The frontend currently uses hard-coded `http://localhost:4000/api/tiles` URLs; configure the backend to accept requests from the frontend origin.
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## Available scripts
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+| Command | Purpose |
+| --- | --- |
+| `npm start` | Run the development server. |
+| `npm test -- --watchAll=false` | Run the Jest test suite once. |
+| `npm run build` | Create an optimized production build in `build/`. |
 
-### `npm run eject`
+## Product and brand images
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+Featured product metadata is in [`src/components/data/newCollection.json`](src/components/data/newCollection.json). Its image URLs use the `/images/...` public URL convention. Put the corresponding files in `public/images/`; for example, `/images/brandlogo.png` maps to `public/images/brandlogo.png`.
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+The repository currently includes the brand logo but may not include all product images referenced by the catalog data. Add the matching image files or update the catalog paths before expecting every product thumbnail and visualizer texture to load. The current room visualizer builds its rooms from 3D geometry and does not require panorama files.
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+## Routes
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+| Route | Purpose | Access |
+| --- | --- | --- |
+| `/` | New tile collections | Public |
+| `/visualizer` | 3D tile room preview | Public; opened with a product selected from the collection |
+| `/contact` | Contact page | Public |
+| `/enquiry` | Enquiry page | Public route; header link is shown to admins |
+| `/auth` | Sign-in and account access | Public |
+| `/sales-bonus` | Sales-bonus view | Authenticated users |
+| `/sales-bonus-management` | Sales-bonus administration | Admin |
+| `/enquiry-management` | Enquiry management | Admin and salesperson |
 
-## Learn More
+The header also links to the external online store. Authorization and role assignments are expected to be provided by the backend.
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+## Backend integration
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+The frontend currently calls a local API base, `http://localhost:4000/api/tiles`. The main API areas include authentication, collections, enquiries, user search, and sales-bonus records/products. The backend must provide compatible routes and enable CORS for the frontend origin. Backend implementation and database setup are not included in this frontend project.
 
-### Code Splitting
+Authentication state is stored in browser storage under `tilesWalaAuth`. Do not store secrets in the frontend; browser-delivered application code and storage are accessible to users.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+## Project structure
 
-### Analyzing the Bundle Size
+```text
+src/
+  App.js                         Routes and application shell
+  context/AuthContext.jsx        Authentication state and actions
+  components/
+    TileVisualizer.jsx           Three.js room and tile preview
+    TileVisualizer.test.jsx      Visualizer regression tests
+    NewCollection.jsx            Featured products and visualizer handoff
+    data/newCollection.json      Featured product metadata
+    Enquiry/                     Customer enquiry pages
+    sales/                       Sales-bonus pages and management
+public/
+  images/                        Brand and product images
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+For implementation details and current design constraints, see [`DESIGN.md`](DESIGN.md).
