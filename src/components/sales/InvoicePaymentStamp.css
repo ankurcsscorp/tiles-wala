@@ -1,0 +1,37 @@
+.sales-details{position:relative}
+.invoice-payment-stamp{
+  position:absolute;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%) rotate(-14deg);
+  z-index:2;
+  pointer-events:none;
+  user-select:none;
+  width:clamp(150px,22vw,220px);
+  max-width:75%;
+  aspect-ratio:1;
+  display:grid;
+  place-items:center;
+  box-sizing:border-box;
+  border:6px double currentColor;
+  border-radius:50%;
+  padding:12px;
+  opacity:.22;
+  font:900 clamp(24px,4vw,42px)/1.15 Arial,Helvetica,sans-serif;
+  letter-spacing:.08em;
+  text-align:center;
+  overflow-wrap:normal;
+  -webkit-print-color-adjust:exact;
+  print-color-adjust:exact;
+}
+.invoice-payment-stamp>span{max-width:90%}
+.invoice-payment-stamp--partial>span{font-size:clamp(18px,2.3vw,26px);line-height:1.3;letter-spacing:.04em}
+.invoice-payment-stamp--due{color:#c62828}
+.invoice-payment-stamp--partial{color:#c99a00}
+.invoice-payment-stamp--paid{color:#218344}
+@media(max-width:480px){.invoice-payment-stamp{padding:10px;border-width:5px;letter-spacing:.04em}}
+@media print{
+  .sales-details>.invoice-payment-stamp{display:none!important}
+  .invoice-print-sheet>.invoice-payment-stamp{width:52mm;font-size:26pt;opacity:.22;padding:4mm;border-width:1.5mm}
+  .invoice-print-sheet>.invoice-payment-stamp--partial>span{font-size:16pt}
+}

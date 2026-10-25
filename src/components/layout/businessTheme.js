@@ -1,0 +1,42 @@
+import { createTheme } from '@mui/material/styles';
+
+export default createTheme({
+  palette: {
+    primary: { main: '#246452', dark: '#184737', contrastText: '#fff' },
+    background: { default: '#f5f7f9', paper: '#fff' },
+    text: { primary: '#223129', secondary: '#627069' },
+    divider: '#e2e8e4',
+  },
+  shape: { borderRadius: 10 },
+  typography: {
+    fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    h4: { fontSize: '1.65rem', fontWeight: 700, letterSpacing: '-.035em' },
+    h5: { fontSize: '1.3rem', fontWeight: 700 },
+    h6: { fontSize: '1.05rem', fontWeight: 650 },
+    button: { textTransform: 'none', fontWeight: 600 },
+    body2: { fontSize: '.875rem' },
+  },
+  components: {
+    MuiButton: { defaultProps: { disableElevation: true }, styleOverrides: { root: { minHeight: 40, borderRadius: 7, whiteSpace: 'normal', textAlign: 'center', overflowWrap: 'anywhere' } } },
+    MuiIconButton: { styleOverrides: { root: { '&.Mui-focusVisible': { outline: '2px solid #246452', outlineOffset: 2 } } } },
+    MuiStack: { defaultProps: { useFlexGap: true }, styleOverrides: { root: { minWidth: 0 } } },
+    MuiGrid: { styleOverrides: { root: { minWidth: 0 } } },
+    MuiMenuItem: { styleOverrides: { root: { whiteSpace: 'normal', overflowWrap: 'anywhere', minHeight: 40 } } },
+    MuiFormControlLabel: { styleOverrides: { root: { maxWidth: '100%', marginRight: 0 }, label: { overflowWrap: 'anywhere' } } },
+    MuiTextField: { defaultProps: { size: 'small', variant: 'outlined' } },
+    MuiFormControl: { defaultProps: { size: 'small' } },
+    MuiOutlinedInput: { styleOverrides: { root: { backgroundColor: '#fff', minHeight: 42 } } },
+    MuiPaper: { defaultProps: { elevation: 0 }, styleOverrides: { root: { backgroundImage: 'none' }, elevation0: { border: '1px solid #e2e8e4' } } },
+    MuiCard: { styleOverrides: { root: { boxShadow: 'none', border: '1px solid #e2e8e4' } } },
+    MuiTableCell: { styleOverrides: { root: { padding: '13px 16px', borderColor: '#e8edea' }, head: { fontWeight: 650, fontSize: '.75rem', color: '#53645b', backgroundColor: '#f5f8f6' }, body: { fontSize: '.875rem' } } },
+    MuiTablePagination: { styleOverrides: { toolbar: { '@media(max-width:599px)': { flexWrap: 'wrap', justifyContent: 'flex-end', gap: 8, padding: '8px 12px', '& .MuiTablePagination-spacer': { display: 'none' }, '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': { margin: 0 }, '& .MuiTablePagination-actions': { marginLeft: 0 } } } } },
+    MuiTableRow: { styleOverrides: { root: { '&:hover td': { backgroundColor: '#f7faf8' } } } },
+    MuiDialog: { defaultProps: { fullWidth: true, maxWidth: 'sm' }, styleOverrides: { paper: { borderRadius: 12, boxShadow: '0 12px 40px rgba(25,45,34,.16)', minWidth: 0, '& > form': { display: 'flex', flexDirection: 'column', minHeight: 0, maxHeight: 'inherit' }, '@media(max-width:599px)': { margin: 12, width: 'calc(100% - 24px)', maxHeight: 'calc(100dvh - 24px)' } } } },
+    MuiDialogTitle: { styleOverrides: { root: { fontSize: '1.15rem', fontWeight: 700, padding: '22px 24px 16px' } } },
+    MuiDialogContent: { styleOverrides: { root: { minWidth: 0, scrollPaddingBlock: 16, '& .MuiFormControl-root': { minWidth: 0 }, '.MuiDialogTitle-root + &': { paddingTop: 12 }, '@media(max-width:599px)': { paddingLeft: 16, paddingRight: 16 } } } },
+    MuiDialogActions: { styleOverrides: { root: { padding: '16px 24px', borderTop: '1px solid #e2e8e4', flexWrap: 'wrap', gap: 8 } } },
+    MuiChip: { defaultProps: { size: 'small' }, styleOverrides: { root: { fontWeight: 600, borderRadius: 6 } } },
+    MuiAlert: { styleOverrides: { root: { borderRadius: 8, overflowWrap: 'anywhere' } } },
+    MuiTabs: { defaultProps: { variant: 'scrollable', scrollButtons: 'auto' } },
+  },
+});

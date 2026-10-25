@@ -1,0 +1,26 @@
+/* Layout primitives shared by business pages and portal-rendered dialogs. */
+.MuiStack-root.ui-filter-grid, .MuiStack-root.ui-form-grid, .ui-filter-grid, .ui-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: 16px; align-items: start; }
+.ui-filter-grid > *, .ui-form-grid > * { min-width: 0; width: 100%; margin: 0 !important; }
+.ui-filter-grid .MuiFormControl-root, .ui-form-grid .MuiFormControl-root { min-width: 0; width: 100%; }
+.ui-filter-grid > .ui-search-field { grid-column: 1 / -1; }
+.ui-table-scroll { width: 100%; max-width: 100%; min-width: 0; overflow: auto; overscroll-behavior-x: contain; }
+.ui-table-scroll > table { min-width: 720px; }
+.ui-table-scroll:focus-visible { outline: 2px solid #246452; outline-offset: -2px; }
+.ui-picker { display: flex; gap: 10px; align-items: flex-start; min-width: 0; width: 100%; }
+.ui-picker > .MuiAutocomplete-root { flex: 1; min-width: 0; }
+.ui-picker > .MuiButton-root { flex-shrink: 0; }
+@media (max-width:599px) {
+  .MuiStack-root.ui-filter-grid, .MuiStack-root.ui-form-grid, .ui-filter-grid, .ui-form-grid { grid-template-columns: minmax(0, 1fr); }
+  .ui-picker { flex-direction: column; }
+  .ui-picker > .MuiButton-root, .ui-picker > .MuiAutocomplete-root { width: 100%; }
+}
+@media print { .ui-table-scroll { overflow: visible; } .ui-table-scroll > table { min-width: 0; } }
+.MuiStack-root.finance-filters, .MuiStack-root.payment-filters, .MuiStack-root.transfer-filters, .MuiStack-root.purchase-filters {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: 16px; align-items: start;
+}
+.MuiStack-root.finance-filters > *, .MuiStack-root.payment-filters > *, .MuiStack-root.transfer-filters > *, .MuiStack-root.purchase-filters > * { margin: 0; min-width: 0; width: 100%; }
+.MuiStack-root.adjustment-line { display: grid; grid-template-columns: minmax(180px,2fr) repeat(3,minmax(120px,1fr)) auto; gap: 12px; }
+@container workspace (max-width:1000px) { .MuiStack-root.adjustment-line { grid-template-columns: repeat(2,minmax(0,1fr)); }.adjustment-line > :first-child { grid-column:1/-1; } }
+@media(max-width:599px) { .MuiStack-root.adjustment-line { grid-template-columns: minmax(0,1fr); } }
+/* Messages and section headings belong above the field columns. */
+.ui-form-grid > .MuiAlert-root, .ui-form-grid > .MuiTypography-root, .ui-form-grid > .MuiStack-root { grid-column: 1 / -1; }

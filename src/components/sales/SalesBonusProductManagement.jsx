@@ -109,7 +109,7 @@ const SalesBonusProductManagement = ({ onCatalogChange }) => {
   );
 
   return (
-    <Stack spacing={2.5}>
+    <Stack useFlexGap spacing={2.5}>
       <Box>
         <Typography variant="h6" fontWeight={700}>
           Update Product

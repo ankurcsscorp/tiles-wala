@@ -430,7 +430,7 @@ const SalesBonusManagement = () => {
   return (
     <Box sx={{ maxWidth: 1300, mx: "auto", px: { xs: 2, md: 4 }, py: 5 }}>
       <Paper sx={{ p: { xs: 2, md: 4 }, borderRadius: 3 }}>
-        <Stack spacing={3}>
+        <Stack useFlexGap spacing={3}>
           <Box>
             <Typography variant="h4" fontWeight={700}>
               Sales Bonus Management
@@ -450,10 +450,10 @@ const SalesBonusManagement = () => {
           </Tabs>
 
           <Box hidden={activeTab !== 0} sx={{ width: "100%" }}>
-            <Stack spacing={3}>
+            <Stack useFlexGap spacing={3}>
 
           <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-            <Stack
+            <Stack className="ui-form-grid" useFlexGap
               direction={{ xs: "column", md: "row" }}
               spacing={2}
               alignItems={{ xs: "stretch", md: "center" }}
@@ -492,7 +492,7 @@ const SalesBonusManagement = () => {
                   const { key, ...restProps } = props;
                   return (
                     <Box component="li" key={option.id} {...restProps}>
-                      <Stack>
+                      <Stack useFlexGap>
                         <Typography variant="body2" fontWeight={600}>
                           {option.name}
                         </Typography>

@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Box, Container, Grid, Typography, TextField, Button, Divider } from "@mui/material";
+import { Box, Container, Grid, Typography, Button, Divider } from "@mui/material";
 import { Facebook, Instagram } from "@mui/icons-material";
 
 const Footer = () => {
@@ -30,7 +30,7 @@ const Footer = () => {
       <Container maxWidth="lg">
         <Grid container spacing={4}>
           {/* Column 1: Company Information */}
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{xs:12,sm:6,md:3}}    >
             <img src="/images/brandlogo.png" alt="Tilewala Logo" style={{ maxWidth: "80px", marginBottom: "16px", borderRadius: "50%" }} />
             <Typography variant="body2" sx={{ mb: 1 , fontWeight:"bold"}}>
               A & A HOME DECOR
@@ -72,7 +72,7 @@ const Footer = () => {
           </Grid>
 
           {/* Column 2: Company */}
-          <Grid item xs={12} sm={6} md={2}>
+          <Grid size={{xs:12,sm:6,md:2}}    >
             <Typography variant="h6" sx={{ mb: 2, fontWeight: "bold" }}>Company</Typography>
             {companyLinks.map((link, index) => (
               <Typography key={index} variant="body2" sx={{ mb: 1 }}>
@@ -84,7 +84,7 @@ const Footer = () => {
           </Grid>
 
           {/* Column 3: Featured Products */}
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{xs:12,sm:6,md:4}}    >
             <Typography variant="h6" sx={{ mb: 2, fontWeight: "bold" }}>Featured Products</Typography>
             {featuredProducts.map((product, index) => (
               <Typography key={index} variant="body2" sx={{ mb: 1 }}>
@@ -97,7 +97,7 @@ const Footer = () => {
           </Grid>
 
           {/* Column 4: Showrooms */}
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{xs:12,sm:6,md:3}}    >
             <Typography variant="h6" sx={{ mb: 2, fontWeight: "bold" }}>Showrooms</Typography>
             {showrooms.map((showroom, index) => (
               <Typography key={index} variant="body2" sx={{ mb: 1 }}>

@@ -31,9 +31,12 @@ The development server opens at [http://localhost:3000](http://localhost:3000). 
 
 ## Available scripts
 
+For another device on the same Wi-Fi, keep the backend running on port 4000 and run `npm run start:lan`. Open `http://<this-computer-LAN-IP>:3001` on that device. This binds the frontend to all interfaces and proxies `/api` requests to `127.0.0.1:4000`, preserving authentication without adding LAN origins to backend CORS. Keep this computer awake and connected. This is local-network access; it does not configure a public internet tunnel or router forwarding.
+
 | Command | Purpose |
 | --- | --- |
 | `npm start` | Run the development server. |
+| `npm run start:lan` | Run a LAN-accessible session on port 3001 with API forwarding. |
 | `npm test -- --watchAll=false` | Run the Jest test suite once. |
 | `npm run build` | Create an optimized production build in `build/`. |
 
@@ -54,6 +57,8 @@ The repository currently includes the brand logo but may not include all product
 | `/auth` | Sign-in and account access | Public |
 | `/sales-bonus` | Sales-bonus view | Authenticated users |
 | `/sales-bonus-management` | Sales-bonus administration | Admin |
+| `/stores` | Store administration, billing settings, and staff assignments | Admin |
+| `/products` | Shared product, category, and unit management | Admin |
 | `/enquiry-management` | Enquiry management | Admin and salesperson |
 
 The header also links to the external online store. Authorization and role assignments are expected to be provided by the backend.

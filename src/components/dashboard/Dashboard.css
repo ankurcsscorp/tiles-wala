@@ -1,0 +1,23 @@
+.dashboard-page { max-width: 1440px; margin: 0 auto; padding: 28px 24px 56px; }
+.dashboard-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin: 8px 0 22px; }
+.dashboard-filter { margin-bottom: 20px; }
+.dashboard-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.dashboard-metric { min-height: 130px; }
+.dashboard-panels { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr); gap: 16px; margin: 20px 0; }
+.store-sales-list { display: grid; gap: 14px; margin-top: 22px; }
+.store-sales-row { display: grid; grid-template-columns: minmax(90px, 1fr) minmax(80px, 2fr) minmax(90px, auto); gap: 12px; align-items: center; font-size: .9rem; }
+.store-sales-row strong { text-align: right; }
+.store-sales-track { height: 10px; background: #edf1ed; border-radius: 10px; overflow: hidden; }
+.store-sales-track div { height: 100%; background: #35815d; border-radius: inherit; }
+.dashboard-notes { padding-left: 20px; color: #58645d; line-height: 1.7; }
+.dashboard-report { margin-top: 18px; }
+.report-toolbar { margin-bottom: 18px; }
+.report-table-wrap { width: 100%; overflow-x: auto; max-height: 560px; }
+.report-table-wrap table { min-width: 720px; }
+.report-pagination { padding-top: 12px; }
+.dashboard-loading,.report-loading { display: flex; justify-content: center; padding: 24px; }
+@media (max-width: 1050px) { .dashboard-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 760px) { .dashboard-page { padding: 20px 12px 40px; } .dashboard-heading { align-items: flex-start; } .dashboard-heading h4 { font-size: 1.7rem; } .dashboard-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; } .dashboard-metric { min-height: 125px; } .dashboard-panels { grid-template-columns: 1fr; } .store-sales-row { grid-template-columns: minmax(70px, 1fr) minmax(40px, 1fr); } .store-sales-track { grid-column: 1 / -1; grid-row: 2; } .store-sales-row strong { text-align: right; } }
+@media (max-width: 380px) { .dashboard-cards { grid-template-columns: 1fr; } }
+.dashboard-metric .MuiTypography-h5{font-variant-numeric:tabular-nums;overflow-wrap:anywhere}.dashboard-metric:first-child{border-top:3px solid #246452}.dashboard-cards{align-items:stretch}
+@media(max-width:600px){.dashboard-filter .MuiFormControl-root{width:100%}.dashboard-metric .MuiCardContent-root{padding:14px}.dashboard-metric .MuiTypography-h5{font-size:1.15rem}.dashboard-heading{flex-wrap:wrap}}

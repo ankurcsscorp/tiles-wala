@@ -401,7 +401,7 @@ const SaleBonus = () => {
   return (
     <Box sx={{ maxWidth: 1200, mx: "auto", px: { xs: 2, md: 4 }, py: 5 }}>
       <Paper sx={{ p: { xs: 2, md: 4 }, borderRadius: 3 }}>
-        <Stack spacing={3}>
+        <Stack useFlexGap spacing={3}>
           <Box
             sx={{
               display: "flex",
@@ -458,7 +458,7 @@ const SaleBonus = () => {
                 const { key, ...optionProps } = props;
                 return (
                   <Box component="li" {...optionProps} key={key ?? option.id}>
-                    <Stack>
+                    <Stack useFlexGap>
                       <Typography variant="body2" fontWeight={600}>
                         {option.name}
                       </Typography>
@@ -510,19 +510,19 @@ const SaleBonus = () => {
               }}
             >
               {topSellersLoading ? (
-                <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+                <Stack useFlexGap direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
                   <CircularProgress size={20} aria-label={text.loadingTopSellers} />
                   <Typography>{text.loadingTopSellers}</Typography>
                 </Stack>
               ) : topSellersError ? (
                 <Alert severity="error">{text.topSellersLoadFailed}</Alert>
               ) : topSellers.length > 0 ? (
-                <Stack direction="row" spacing={1.5} sx={{ alignItems: "flex-start" }}>
+                <Stack useFlexGap direction="row" spacing={1.5} sx={{ alignItems: "flex-start" }}>
                   <StarRoundedIcon
                     aria-hidden="true"
                     sx={{ color: "warning.main", fontSize: 36, mt: 0.25 }}
                   />
-                  <Stack spacing={1}>
+                  <Stack useFlexGap spacing={1}>
                     <Typography variant="subtitle1" fontWeight={700}>
                       {(isAdmin ? selectedUser.userType : user?.userType)
                         ?.toLowerCase() === "tile mistire"
@@ -548,7 +548,7 @@ const SaleBonus = () => {
                   </Stack>
                 </Stack>
               ) : (
-                <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+                <Stack useFlexGap direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
                   <StarRoundedIcon
                     aria-hidden="true"
                     sx={{ color: "warning.main", fontSize: 36 }}
@@ -618,7 +618,7 @@ const SaleBonus = () => {
                 <Alert severity="success">{text.allPaid}</Alert>
               )}
 
-              <Stack spacing={2}>
+              <Stack useFlexGap spacing={2}>
                 {records.map((record) => {
                   const due = amountDue(record);
                   return (
@@ -627,7 +627,7 @@ const SaleBonus = () => {
                       variant="outlined"
                       sx={{ p: { xs: 1.5, md: 2 }, borderRadius: 2 }}
                     >
-                      <Stack
+                      <Stack useFlexGap
                         direction={{ xs: "column", sm: "row" }}
                         justifyContent="space-between"
                         spacing={1}
@@ -750,7 +750,7 @@ const SaleBonus = () => {
                           <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>
                             {text.recordPaymentTitle}
                           </Typography>
-                          <Stack
+                          <Stack className="ui-form-grid" useFlexGap
                             direction={{ xs: "column", sm: "row" }}
                             spacing={1.5}
                             sx={{ alignItems: { sm: "center" } }}
@@ -763,7 +763,7 @@ const SaleBonus = () => {
                               onChange={(event) =>
                                 updatePaymentDraft(record.id, "amount", event.target.value)
                               }
-                              inputProps={{ min: 0.01, max: due, step: 0.01 }}
+                              slotProps={{htmlInput:{ min: 0.01, max: due, step: 0.01 }}}
                               sx={{ minWidth: { sm: 160 } }}
                             />
                             <FormControl size="small" sx={{ minWidth: { sm: 140 } }}>

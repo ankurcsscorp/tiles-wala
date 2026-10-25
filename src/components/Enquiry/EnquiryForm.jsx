@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../../api";
 import {
   Box,
   Paper,
@@ -107,7 +107,7 @@ const EnquiryForm = () => {
         remark: formData.remark.trim(),
       };
 
-      const response = await axios.post(API_URL, payload, {
+      const response = await api.post(API_URL, payload, {
         headers: { "Content-Type": "application/json" },
       });
 
@@ -198,7 +198,7 @@ const EnquiryForm = () => {
         <Box component="form" onSubmit={handleSubmit} noValidate>
           <Grid container spacing={{ xs: 2, sm: 3 }}>
             {/* Customer Name */}
-            <Grid item xs={12} sm={6}>
+            <Grid size={{xs:12,sm:6}}   >
               <TextField
                 {...fieldProps}
                 required
@@ -214,7 +214,7 @@ const EnquiryForm = () => {
             </Grid>
 
             {/* Mobile Number */}
-            <Grid item xs={12} sm={6}>
+            <Grid size={{xs:12,sm:6}}   >
               <TextField
                 {...fieldProps}
                 required
@@ -231,20 +231,20 @@ const EnquiryForm = () => {
                 error={Boolean(errors.mobile)}
                 helperText={errors.mobile || "Enter 10-digit mobile number"}
                 placeholder="9876543210"
-                inputProps={{
+                slotProps={{htmlInput:{
                   inputMode: "numeric",
                   maxLength: 10,
-                }}
-                InputProps={{
+                },input:{
                   startAdornment: (
                     <InputAdornment position="start">+91</InputAdornment>
                   ),
-                }}
+                }}}
+
               />
             </Grid>
 
             {/* Address */}
-            <Grid item xs={12}>
+            <Grid size={{xs:12}}  >
               <TextField
                 {...fieldProps}
                 required
@@ -261,7 +261,7 @@ const EnquiryForm = () => {
             </Grid>
 
             {/* Required Tile Area */}
-            <Grid item xs={12} sm={6}>
+            <Grid size={{xs:12,sm:6}}   >
               <TextField
                 {...fieldProps}
                 required
@@ -275,21 +275,21 @@ const EnquiryForm = () => {
                   errors.area || "Enter required tile area in sq. ft."
                 }
                 placeholder="e.g. 500"
-                inputProps={{
+                slotProps={{htmlInput:{
                   min: 0,
                   step: "any",
                   inputMode: "decimal",
-                }}
-                InputProps={{
+                },input:{
                   endAdornment: (
                     <InputAdornment position="end">sq. ft.</InputAdornment>
                   ),
-                }}
+                }}}
+
               />
             </Grid>
 
             {/* Purchase Plan */}
-            <Grid item xs={12} sm={6}>
+            <Grid size={{xs:12,sm:6}}   >
               <TextField
                 {...fieldProps}
                 select
@@ -312,7 +312,7 @@ const EnquiryForm = () => {
             </Grid>
 
             {/* Remark */}
-            <Grid item xs={12}>
+            <Grid size={{xs:12}}  >
               <TextField
                 {...fieldProps}
                 label="Remark"
@@ -326,7 +326,7 @@ const EnquiryForm = () => {
             </Grid>
 
             {/* Action Buttons */}
-            <Grid item xs={12}>
+            <Grid size={{xs:12}}  >
               <Box
                 sx={{
                   display: "flex",

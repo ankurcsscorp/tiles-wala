@@ -8,336 +8,205 @@ import React, {
 } from "react";
 import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber";
 import { Environment } from "@react-three/drei/core/Environment";
+import { Lightformer } from "@react-three/drei/core/Lightformer";
+import { OrthographicCamera } from "@react-three/drei/core/OrthographicCamera";
+import { RoundedBox } from "@react-three/drei/core/RoundedBox";
+import { OrbitControls } from "@react-three/drei/core/OrbitControls";
+import { buildTileLayout, FINISHES, getProductFinish, getTileDimensions } from "./visualizer/tileLayout";
 import { ContactShadows } from "@react-three/drei/core/ContactShadows";
 import * as THREE from "three";
 import { useLocation, useNavigate } from "react-router-dom";
+import { getCameraView, ROOM_TEMPLATES } from "./visualizer/sceneConfig";
+import WallKitchen, { useSlabMaterial } from "./visualizer/WallKitchen";
+import { buildWallGrid, clipWallLayout, getKitchenLayout, getWallCameraView, getWallRotation, WALL_CAMERA_PRESETS } from "./visualizer/wallConfig";
 import "./TileVisualizer.css";
 
+const WallLighting = React.lazy(() => import("./visualizer/WallLighting"));
 const COLLECTION_PATH = "/";
 
-const ROOM_TEMPLATES = {
-  living: { label: "Living Room", width: 16, depth: 13, height: 9 },
-  bedroom: { label: "Bedroom", width: 13, depth: 12, height: 9 },
-  bathroom: { label: "Bathroom", width: 10, depth: 9, height: 8 },
-  kitchen: { label: "Kitchen", width: 13, depth: 12, height: 9 },
+// Keep Canvas camera configuration stable; controls handle room changes and presets.
+const DEFAULT_CAMERA = { position: getCameraView(ROOM_TEMPLATES.living, "close").position, fov: 58, near: 0.05, far: 120 };
+const CAMERA_PRESETS = { floor: "Floor Focus", room: "Full Room", close: "Close-up", top: "Top View" };
+const QUALITY = { performance: { dpr: 1, shadow: 512 }, balanced: { dpr: 1.5, shadow: 1024 }, high: { dpr: 2, shadow: 2048 } };
+
+const LayoutCamera = ({ room }) => {
+  const { size } = useThree();
+  const { width, depth, height } = ROOM_TEMPLATES[room];
+  const zoom = Math.min(size.width / (width * 1.08), size.height / (depth * 1.08));
+  return <OrthographicCamera makeDefault position={[0, height - 0.5, 0.01]} zoom={zoom} near={0.05} far={120} />;
 };
 
-const getAutoZoomOffset = (elapsed) =>
-  Math.sin((elapsed / 16) * Math.PI * 2) * 1.25;
-
-const RoomOrbitControls = ({ autoRotate, autoZoom }) => {
-  const { camera, gl } = useThree();
-  const dragPosition = useRef(null);
-  const activePointers = useRef(new Map());
-  const pinchDistance = useRef(0);
-  const spherical = useRef(null);
-  const isInteracting = useRef(false);
-  const resumeRotationTimer = useRef(null);
-  const zoomElapsed = useRef(0);
-  const zoomBaseRadius = useRef(null);
-  const target = useMemo(() => new THREE.Vector3(0, 3.8, -1), []);
+const RoomOrbitControls = ({ room, surface, preset, reset, autoRotate, autoZoom, upperCabinets, coverage }) => {
+  const { camera, size } = useThree();
+  const controls = useRef();
+  const destination = useRef(null);
+  const interacting = useRef(false);
+  const elapsed = useRef(0);
+  const wallMotion = useRef(null);
+  const wallMode = surface !== "floor";
+  const viewPreset = room === "kitchen" && coverage === "backsplash" && ["wall-close", "inspect"].includes(preset) ? "backsplash" : preset;
+  const { width, depth, height } = ROOM_TEMPLATES[room];
 
   useEffect(() => {
-    const element = gl.domElement;
-    spherical.current = new THREE.Spherical().setFromVector3(
-      camera.position.clone().sub(target)
-    );
-    zoomBaseRadius.current = spherical.current.radius;
-
-    const updateCamera = () => {
-      const nextPosition = new THREE.Vector3()
-        .setFromSpherical(spherical.current)
-        .add(target);
-      camera.position.copy(nextPosition);
-      camera.lookAt(target);
-    };
-
-    const pauseRotation = () => {
-      isInteracting.current = true;
-      window.clearTimeout(resumeRotationTimer.current);
-    };
-
-    const scheduleRotationResume = () => {
-      window.clearTimeout(resumeRotationTimer.current);
-      resumeRotationTimer.current = window.setTimeout(() => {
-        isInteracting.current = false;
-      }, 1800);
-    };
-
-    const measurePinchDistance = () => {
-      const [first, second] = [...activePointers.current.values()];
-      return Math.hypot(second.x - first.x, second.y - first.y);
-    };
-
-    const onPointerDown = (event) => {
-      if (event.button !== 0) return;
-      pauseRotation();
-      activePointers.current.set(event.pointerId, {
-        x: event.clientX,
-        y: event.clientY,
-        pointerType: event.pointerType,
-      });
-      if (activePointers.current.size === 1) {
-        dragPosition.current = { x: event.clientX, y: event.clientY };
-      } else if (event.pointerType === "touch") {
-        dragPosition.current = null;
-        pinchDistance.current = measurePinchDistance();
-      }
-      element.setPointerCapture?.(event.pointerId);
-    };
-
-    const onPointerMove = (event) => {
-      if (!activePointers.current.has(event.pointerId)) return;
-      activePointers.current.set(event.pointerId, {
-        x: event.clientX,
-        y: event.clientY,
-        pointerType: event.pointerType,
-      });
-
-      if (event.pointerType === "touch" && activePointers.current.size > 1) {
-        const nextPinchDistance = measurePinchDistance();
-        if (pinchDistance.current > 0 && nextPinchDistance > 0) {
-          const previousRadius = spherical.current.radius;
-          spherical.current.radius = THREE.MathUtils.clamp(
-            previousRadius * (pinchDistance.current / nextPinchDistance),
-            0.5,
-            6.5
-          );
-          zoomBaseRadius.current = THREE.MathUtils.clamp(
-            zoomBaseRadius.current + spherical.current.radius - previousRadius,
-            0.5,
-            6.5
-          );
-          updateCamera();
-        }
-        pinchDistance.current = nextPinchDistance;
-        return;
-      }
-
-      if (!dragPosition.current) return;
-      const deltaX = event.clientX - dragPosition.current.x;
-      const deltaY = event.clientY - dragPosition.current.y;
-      dragPosition.current = { x: event.clientX, y: event.clientY };
-      spherical.current.theta -= deltaX * 0.006;
-      spherical.current.phi = THREE.MathUtils.clamp(
-        spherical.current.phi + deltaY * 0.006,
-        Math.PI * 0.25,
-        Math.PI * 0.72
-      );
-      updateCamera();
-    };
-
-    const stopDragging = (event) => {
-      activePointers.current.delete(event.pointerId);
-      element.releasePointerCapture?.(event.pointerId);
-      if (activePointers.current.size > 1) {
-        pinchDistance.current = measurePinchDistance();
-      } else if (activePointers.current.size === 1) {
-        const remainingPointer = activePointers.current.values().next().value;
-        dragPosition.current = { x: remainingPointer.x, y: remainingPointer.y };
-        pinchDistance.current = 0;
-      } else {
-        dragPosition.current = null;
-        pinchDistance.current = 0;
-      }
-      if (activePointers.current.size === 0 && zoomBaseRadius.current !== null) {
-        zoomBaseRadius.current = THREE.MathUtils.clamp(
-          spherical.current.radius - getAutoZoomOffset(zoomElapsed.current),
-          0.5,
-          6.5
-        );
-        scheduleRotationResume();
-      }
-    };
-
-    const onWheel = (event) => {
-      event.preventDefault();
-      pauseRotation();
-      const previousRadius = spherical.current.radius;
-      spherical.current.radius = THREE.MathUtils.clamp(
-        spherical.current.radius * (1 + event.deltaY * 0.001),
-        0.5,
-        6.5
-      );
-      zoomBaseRadius.current = THREE.MathUtils.clamp(
-        zoomBaseRadius.current + spherical.current.radius - previousRadius,
-        0.5,
-        6.5
-      );
-      updateCamera();
-      scheduleRotationResume();
-    };
-
-    element.addEventListener("pointerdown", onPointerDown);
-    element.addEventListener("pointermove", onPointerMove);
-    element.addEventListener("pointerup", stopDragging);
-    element.addEventListener("pointercancel", stopDragging);
-    element.addEventListener("wheel", onWheel, { passive: false });
-    return () => {
-      element.removeEventListener("pointerdown", onPointerDown);
-      element.removeEventListener("pointermove", onPointerMove);
-      element.removeEventListener("pointerup", stopDragging);
-      element.removeEventListener("pointercancel", stopDragging);
-      element.removeEventListener("wheel", onWheel);
-      window.clearTimeout(resumeRotationTimer.current);
-    };
-  }, [camera, gl, target]);
+    const aspect = size.width / size.height;
+    const view = wallMode ? getWallCameraView(ROOM_TEMPLATES[room], viewPreset, aspect) : getCameraView(ROOM_TEMPLATES[room], preset, aspect);
+    destination.current = view;
+    wallMotion.current = null;
+    elapsed.current = 0;
+  }, [camera, room, wallMode, viewPreset, preset, reset, size.width, size.height]);
 
   useFrame((_, delta) => {
-    if (isInteracting.current || !spherical.current) return;
-    if (autoRotate) spherical.current.theta -= delta * 0.16;
-    if (autoZoom && zoomBaseRadius.current !== null) {
-      zoomElapsed.current += delta;
-      spherical.current.radius = THREE.MathUtils.clamp(
-        zoomBaseRadius.current + getAutoZoomOffset(zoomElapsed.current),
-        0.5,
-        6.5
-      );
+    if (!controls.current) return;
+    const orbit = controls.current;
+    if (destination.current && !interacting.current) {
+      const view = destination.current;
+      const factor = 1 - Math.exp(-delta * 6);
+      const position = new THREE.Vector3(...destination.current.position);
+      const target = new THREE.Vector3(...destination.current.target);
+      camera.position.lerp(position, factor);
+      orbit.target.lerp(target, factor);
+      const arrived = camera.position.distanceTo(position) < 0.015 && (!wallMode || orbit.target.distanceTo(target) < 0.015);
+      if (camera.isPerspectiveCamera) {
+        camera.fov = THREE.MathUtils.lerp(camera.fov, view.fov || 58, factor);
+        if (arrived) camera.fov = view.fov || 58;
+        camera.updateProjectionMatrix();
+      }
+      if (arrived) destination.current = null;
+    } else if (wallMode && !interacting.current && (autoRotate || autoZoom)) {
+      if (!wallMotion.current) {
+        wallMotion.current = { position: camera.position.clone(), target: orbit.target.clone(), yaw: new THREE.Vector3(0, 1, 0) };
+        elapsed.current = 0;
+      }
+      elapsed.current += delta;
+      const motion = wallMotion.current;
+      const offset = motion.position.clone().sub(motion.target);
+      // A small showroom sweep keeps the chosen wall in frame instead of orbiting away.
+      if (autoRotate) offset.applyAxisAngle(motion.yaw, Math.sin(elapsed.current * 0.22) * 0.045);
+      if (autoZoom) offset.multiplyScalar(1 + Math.sin(elapsed.current * 0.3) * 0.035);
+      camera.position.copy(motion.target).add(offset);
+    } else if (autoZoom && !interacting.current) {
+      elapsed.current += delta;
+      if (camera.isOrthographicCamera) {
+        camera.zoom = THREE.MathUtils.clamp(camera.zoom * Math.exp(Math.cos(elapsed.current * 0.4) * delta * 0.025), 1, 200);
+        camera.updateProjectionMatrix();
+      } else {
+        camera.position.addScaledVector(camera.position.clone().sub(orbit.target).normalize(), Math.cos(elapsed.current * 0.4) * delta * 0.22);
+      }
     }
-    camera.position.setFromSpherical(spherical.current).add(target);
-    camera.lookAt(target);
+    // Clamp both the eye and pan target to the interior, including on touch input.
+    camera.position.x = THREE.MathUtils.clamp(camera.position.x, -width / 2 + 0.4, width / 2 - 0.4);
+    camera.position.z = THREE.MathUtils.clamp(camera.position.z, -depth / 2 + 0.4, depth / 2 - 0.4);
+    camera.position.y = THREE.MathUtils.clamp(camera.position.y, wallMode ? 3.4 : 0.65, height - 0.3);
+    orbit.target.x = THREE.MathUtils.clamp(orbit.target.x, -width / 2 + (wallMode ? 0.02 : 1), width / 2 - (wallMode ? 0.02 : 1));
+    orbit.target.z = THREE.MathUtils.clamp(orbit.target.z, -depth / 2 + (wallMode ? 0.02 : 1), depth / 2 - (wallMode ? 0.02 : 1));
+    orbit.target.y = THREE.MathUtils.clamp(orbit.target.y, 0, wallMode ? height - 0.4 : height / 2);
+    if (wallMode && room === "kitchen" && upperCabinets) {
+      const layout = getKitchenLayout(ROOM_TEMPLATES[room]);
+      const nearUpper = Math.abs(camera.position.x) > layout.counterWidth / 2 - layout.upperWidth - 0.2 && Math.abs(camera.position.x) < layout.counterWidth / 2 + 0.2;
+      if (nearUpper && camera.position.y > layout.upperBottom - 0.2 && camera.position.y < layout.upperBottom + layout.upperHeight + 0.2) {
+        camera.position.z = Math.max(camera.position.z, layout.backZ + 1.35);
+      }
+    }
+    camera.lookAt(orbit.target);
   });
 
-  return null;
+  return <OrbitControls ref={controls} makeDefault enableDamping dampingFactor={0.09}
+    minZoom={1} maxZoom={200} minDistance={wallMode ? 2.8 : 1.2} maxDistance={depth * 0.9} minPolarAngle={0.001} maxPolarAngle={Math.PI / 2 + (wallMode ? 0.15 : -0.06)}
+    autoRotate={autoRotate && !wallMode} autoRotateSpeed={0.35}
+    onStart={() => { interacting.current = true; destination.current = null; wallMotion.current = null; }}
+    onEnd={() => { interacting.current = false; }} />;
 };
 
-const getTileDimensions = (size) => {
-  const value = String(size ?? "");
-  const dimensions = [...value.matchAll(/(\d+(?:\.\d+)?)\s*(mm|cm|m|ft|feet|')?/gi)];
-  if (dimensions.length < 2) return { width: 2, height: 4 };
-
-  const defaultUnit =
-    dimensions.find((dimension) => dimension[2])?.[2]?.toLowerCase() ?? "mm";
-  const toFeet = (dimension) => {
-    const amount = Number(dimension[1]);
-    const unit = (dimension[2] || defaultUnit).toLowerCase();
-    if (unit === "mm") return amount / 304.8;
-    if (unit === "cm") return amount / 30.48;
-    if (unit === "m") return amount / 0.3048;
-    return amount;
+// One merged geometry per product face: physical recessed grout, small edge bevels,
+// and clipped UVs. Draw calls stay constant as the number of installed tiles grows.
+const createTileGeometry = (tiles) => {
+  const positions = [], uvs = [];
+  const quad = (a, b, c, d, uv) => {
+    for (const i of [0, 1, 2, 0, 2, 3]) {
+      positions.push(...[a, b, c, d][i]);
+      uvs.push(...uv[i]);
+    }
   };
-
-  return {
-    width: Math.max(toFeet(dimensions[0]), 0.1),
-    height: Math.max(toFeet(dimensions[1]), 0.1),
-  };
+  tiles.forEach(({ left: l, right: r, bottom: b, top: t, u0, u1, v0, v1, rotated }) => {
+    const bevel = Math.min(0.0015, (r - l) / 8, (t - b) / 8);
+    const uv = [[u0, v0], [u1, v0], [u1, v1], [u0, v1]].map(([u, v]) => rotated ? [v, 1 - u] : [u, v]);
+    const outer = [[l,b,0], [r,b,0], [r,t,0], [l,t,0]];
+    const inner = [[l+bevel,b+bevel,0.004], [r-bevel,b+bevel,0.004], [r-bevel,t-bevel,0.004], [l+bevel,t-bevel,0.004]];
+    quad(...inner, uv);
+    for (let i = 0; i < 4; i++) {
+      const j = (i+1)%4;
+      quad(outer[i], outer[j], inner[j], inner[i], [uv[i], uv[j], uv[j], uv[i]]);
+    }
+  });
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+  geometry.computeVertexNormals();
+  return geometry;
 };
 
-/**
- * Procedurally generates a grout line and micro-bevel bump map.
- * White represents the elevated tile surface, dark gray represents recessed grout lines.
- */
-const createGroutBumpTexture = (aspectRatio = 1) => {
-  const canvas = document.createElement("canvas");
-  const baseSize = 512;
-  canvas.width = baseSize;
-  canvas.height = Math.max(64, Math.round(baseSize / aspectRatio));
-  const ctx = canvas.getContext("2d");
-
-  // Tile surface elevation
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  // Soft beveled edge
-  const bevelMargin = 6;
-  ctx.lineWidth = bevelMargin;
-  ctx.strokeStyle = "#aaaaaa";
-  ctx.strokeRect(bevelMargin / 2, bevelMargin / 2, canvas.width - bevelMargin, canvas.height - bevelMargin);
-
-  // Recessed grout line groove
-  const groutThickness = 3;
-  ctx.lineWidth = groutThickness;
-  ctx.strokeStyle = "#222222";
-  ctx.strokeRect(0, 0, canvas.width, canvas.height);
-
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
-  return texture;
-};
-
-const TiledMaterial = ({
-  imageUrl,
-  tileWidth,
-  tileHeight,
-  repeatWidth,
-  repeatHeight,
-  roughness,
-}) => {
+const TileFace = ({ tiles, imageUrl, finish, normalMapUrl, roughnessMapUrl }) => {
   const { gl } = useThree();
-  const sourceTexture = useLoader(THREE.TextureLoader, imageUrl);
+  const sources = useLoader(THREE.TextureLoader, [imageUrl, ...(normalMapUrl ? [normalMapUrl] : []), ...(roughnessMapUrl ? [roughnessMapUrl] : [])]);
+  const textures = useMemo(() => sources.map((source, index) => {
+    const texture = source.clone();
+    texture.colorSpace = index === 0 ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+    texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy());
+    texture.minFilter = THREE.LinearMipmapLinearFilter;
+    texture.needsUpdate = true;
+    return texture;
+  }), [sources, gl]);
+  const geometry = useMemo(() => createTileGeometry(tiles), [tiles]);
+  useEffect(() => () => geometry.dispose(), [geometry]);
+  useEffect(() => () => textures.forEach((texture) => texture.dispose()), [textures]);
+  const { label, ...material } = FINISHES[finish];
+  return <mesh geometry={geometry} receiveShadow>
+    <meshPhysicalMaterial map={textures[0]} normalMap={normalMapUrl ? textures[1] : null}
+      roughnessMap={roughnessMapUrl ? textures[textures.length - 1] : null}
+      {...material} metalness={0} envMapIntensity={0.85} />
+  </mesh>;
+};
 
-  const { repeatedTexture, bumpTexture } = useMemo(() => {
-    const maxAnisotropy = gl.capabilities.getMaxAnisotropy() || 16;
-    const repX = repeatWidth / tileWidth;
-    const repY = repeatHeight / tileHeight;
-
-    // 1. Tile Base Color Map with Anisotropic Filtering
-    const cloned = sourceTexture.clone();
-    cloned.colorSpace = THREE.SRGBColorSpace;
-    cloned.wrapS = THREE.RepeatWrapping;
-    cloned.wrapT = THREE.RepeatWrapping;
-    cloned.repeat.set(repX, repY);
-    cloned.anisotropy = maxAnisotropy;
-    cloned.generateMipmaps = true;
-    cloned.minFilter = THREE.LinearMipmapLinearFilter;
-    cloned.magFilter = THREE.LinearFilter;
-    cloned.needsUpdate = true;
-
-    // 2. Procedural Grout Line & Micro-Bevel Bump Map
-    const bump = createGroutBumpTexture(tileWidth / tileHeight);
-    bump.repeat.set(repX, repY);
-    bump.anisotropy = maxAnisotropy;
-    bump.generateMipmaps = true;
-    bump.minFilter = THREE.LinearMipmapLinearFilter;
-    bump.magFilter = THREE.LinearFilter;
-    bump.needsUpdate = true;
-
-    return { repeatedTexture: cloned, bumpTexture: bump };
-  }, [sourceTexture, repeatWidth, repeatHeight, tileWidth, tileHeight, gl]);
-
-  useEffect(() => {
-    return () => {
-      repeatedTexture.dispose();
-      bumpTexture.dispose();
-    };
-  }, [repeatedTexture, bumpTexture]);
-
-  return (
-    <meshStandardMaterial
-      map={repeatedTexture}
-      bumpMap={bumpTexture}
-      bumpScale={0.02}
-      roughnessMap={bumpTexture}
-      roughness={roughness}
-      metalness={0.02}
-      envMapIntensity={1.3}
-      side={THREE.DoubleSide}
-    />
-  );
+const TiledSurface = ({ repeatWidth, repeatHeight, tileWidth, tileHeight, imageUrl, faceUrls, finish, groutColor, jointWidth, pattern, rotation, normalMapUrl, roughnessMapUrl, wallRegion, wallSurface = false }) => {
+  const regionWidth = wallRegion?.fullWidth;
+  const regionHeight = wallRegion?.fullHeight;
+  const centerX = wallRegion?.centerX || 0;
+  const centerY = wallRegion?.centerY || 0;
+  const layout = useMemo(() => {
+    const buildLayout = wallSurface ? buildWallGrid : buildTileLayout;
+    if (!regionWidth) return buildLayout(repeatWidth, repeatHeight, tileWidth, tileHeight, jointWidth, pattern, rotation);
+    const fullLayout = buildLayout(regionWidth, regionHeight, tileWidth, tileHeight, jointWidth, pattern, rotation);
+    return clipWallLayout(fullLayout, { width: repeatWidth, height: repeatHeight, centerX, centerY });
+  }, [repeatWidth, repeatHeight, tileWidth, tileHeight, jointWidth, pattern, rotation, regionWidth, regionHeight, centerX, centerY, wallSurface]);
+  const faces = useMemo(() => [...new Set([imageUrl, ...(Array.isArray(faceUrls) ? faceUrls : []).filter((url) => typeof url === "string" && url)])].slice(0, 8), [imageUrl, faceUrls]);
+  const batches = useMemo(() => faces.map((_, face) => layout.filter((tile, index) => (tile.faceIndex ?? index) % faces.length === face)), [layout, faces]);
+  return <group>
+    <mesh position={[0, 0, -0.003]} receiveShadow>
+      <planeGeometry args={[repeatWidth, repeatHeight]} />
+      <meshStandardMaterial color={groutColor} roughness={0.85} metalness={0} />
+    </mesh>
+    {faces.map((url, index) => <TileFace key={url} imageUrl={url} tiles={batches[index]} finish={finish} normalMapUrl={normalMapUrl} roughnessMapUrl={roughnessMapUrl} />)}
+  </group>;
 };
 
 const Sofa = () => (
   <group position={[0, 0, -2.35]}>
-    <mesh position={[0, 0.64, 0]} castShadow receiveShadow>
-      <boxGeometry args={[6.4, 0.8, 2.2]} />
+    <RoundedBox position={[0, 0.64, 0]} castShadow receiveShadow args={[6.4, 0.8, 2.2]} radius={0.08} smoothness={4}>
       <meshStandardMaterial color="#b88768" roughness={0.82} />
-    </mesh>
-    <mesh position={[0, 1.45, -0.78]} castShadow receiveShadow>
-      <boxGeometry args={[6.1, 1.15, 0.65]} />
+    </RoundedBox>
+    <RoundedBox position={[0, 1.45, -0.78]} castShadow receiveShadow args={[6.1, 1.15, 0.65]} radius={0.08} smoothness={4}>
       <meshStandardMaterial color="#a87558" roughness={0.86} />
-    </mesh>
+    </RoundedBox>
     {[-3.05, 3.05].map((x) => (
-      <mesh key={x} position={[x, 1.12, 0]} castShadow>
-        <boxGeometry args={[0.55, 1.25, 2.25]} />
+      <RoundedBox key={x} position={[x, 1.12, 0]} castShadow args={[0.55, 1.25, 2.25]} radius={0.08} smoothness={4}>
         <meshStandardMaterial color="#986c55" roughness={0.88} />
-      </mesh>
+      </RoundedBox>
     ))}
     {[-1.85, 0, 1.85].map((x, index) => (
-      <mesh key={x} position={[x, 1.14, -0.24]} rotation={[0, 0, index === 1 ? 0 : -0.07]} castShadow>
-        <boxGeometry args={[1.65, 0.68, 1.45]} />
+      <RoundedBox key={x} position={[x, 1.14, -0.24]} rotation={[0, 0, index === 1 ? 0 : -0.07]} castShadow args={[1.65, 0.68, 1.45]} radius={0.08} smoothness={4}>
         <meshStandardMaterial color={index === 1 ? "#d3b69c" : "#c69a79"} roughness={0.9} />
-      </mesh>
+      </RoundedBox>
     ))}
     {[-2.55, 2.55].map((x) => (
       <mesh key={x} position={[x, 0.17, -0.72]} castShadow>
@@ -346,10 +215,9 @@ const Sofa = () => (
       </mesh>
     ))}
     {[-1.25, 1.25].map((x) => (
-      <mesh key={x} position={[x, 1.52, -0.38]} rotation={[0, 0, x < 0 ? -0.12 : 0.12]} castShadow>
-        <boxGeometry args={[1.1, 0.9, 0.24]} />
+      <RoundedBox key={x} position={[x, 1.52, -0.38]} rotation={[0, 0, x < 0 ? -0.12 : 0.12]} castShadow args={[1.1, 0.9, 0.24]} radius={0.08} smoothness={4}>
         <meshStandardMaterial color={x < 0 ? "#e6d9c7" : "#78908a"} roughness={0.96} />
-      </mesh>
+      </RoundedBox>
     ))}
   </group>
 );
@@ -527,11 +395,10 @@ const BathroomFixtures = () => (
 );
 
 const CoffeeTable = () => (
-  <group position={[0, 0, -4.55]}>
-    <mesh position={[0, 0.72, 0]} castShadow>
-      <boxGeometry args={[4.1, 0.17, 2.15]} />
+  <group position={[0, 0, -1.6]} scale={0.8}>
+    <RoundedBox position={[0, 0.72, 0]} castShadow args={[4.1, 0.17, 2.15]} radius={0.08} smoothness={4}>
       <meshStandardMaterial color="#8a6650" roughness={0.5} />
-    </mesh>
+    </RoundedBox>
     {[-1.65, 1.65].flatMap((x) =>
       [-0.75, 0.75].map((z) => (
         <mesh key={`${x}-${z}`} position={[x, 0.35, z]} castShadow>
@@ -553,14 +420,12 @@ const CoffeeTable = () => (
 
 const SideTable = ({ position }) => (
   <group position={position}>
-    <mesh position={[0, 0.78, 0]} castShadow>
-      <boxGeometry args={[1.65, 0.15, 1.35]} />
+    <RoundedBox position={[0, 0.78, 0]} castShadow args={[1.65, 0.15, 1.35]} radius={0.08} smoothness={4}>
       <meshStandardMaterial color="#916e55" roughness={0.58} />
-    </mesh>
-    <mesh position={[0, 0.36, 0]} castShadow>
-      <boxGeometry args={[1.4, 0.72, 1.1]} />
+    </RoundedBox>
+    <RoundedBox position={[0, 0.36, 0]} castShadow args={[1.4, 0.72, 1.1]} radius={0.08} smoothness={4}>
       <meshStandardMaterial color="#b18a6d" roughness={0.65} />
-    </mesh>
+    </RoundedBox>
     <mesh position={[0, 1.12, 0]} castShadow>
       <cylinderGeometry args={[0.12, 0.22, 0.48, 16]} />
       <meshStandardMaterial color="#d7c4a8" roughness={0.68} />
@@ -572,12 +437,10 @@ const SideTable = ({ position }) => (
   </group>
 );
 
-const KitchenInteriors = () => (
+const KitchenInteriors = ({ slabColor, upperCabinets = true }) => {
+  const slabMaterial = useSlabMaterial(slabColor);
+  return (
   <group>
-    <mesh position={[0, 0.055, -0.4]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-      <planeGeometry args={[8.2, 5.8]} />
-      <meshStandardMaterial color="#ded6c9" roughness={0.94} />
-    </mesh>
 
     <group>
       <mesh position={[0, 1.05, -5.05]} castShadow receiveShadow>
@@ -586,7 +449,7 @@ const KitchenInteriors = () => (
       </mesh>
       <mesh position={[0, 2.02, -5.05]} castShadow receiveShadow>
         <boxGeometry args={[9.88, 0.18, 1.62]} />
-        <meshStandardMaterial color="#e8e3da" roughness={0.2} />
+        {slabColor ? <primitive object={slabMaterial} attach="material" dispose={null} /> : <meshStandardMaterial color="#e8e3da" roughness={0.2} />}
       </mesh>
       {[-3.55, -2.36, -1.18, 0, 1.18, 2.36, 3.55].map((x) => (
         <mesh key={`kitchen-lower-door-${x}`} position={[x, 1.04, -4.312]}>
@@ -609,7 +472,7 @@ const KitchenInteriors = () => (
       </mesh>
       <mesh position={[-5.35, 2.02, -0.35]} castShadow receiveShadow>
         <boxGeometry args={[1.62, 0.18, 7.92]} />
-        <meshStandardMaterial color="#e8e3da" roughness={0.2} />
+        {slabColor ? <primitive object={slabMaterial} attach="material" dispose={null} /> : <meshStandardMaterial color="#e8e3da" roughness={0.2} />}
       </mesh>
       {[-3.35, -1.35, 0.65, 2.65].map((z) => (
         <mesh key={`kitchen-side-door-${z}`} position={[-4.604, 1.04, z]}>
@@ -619,6 +482,7 @@ const KitchenInteriors = () => (
       ))}
     </group>
 
+    {upperCabinets && <>
     <mesh position={[0, 3.35, -5.44]} castShadow>
       <boxGeometry args={[8.9, 1.9, 0.92]} />
       <meshStandardMaterial color="#d7d0c4" roughness={0.62} />
@@ -640,6 +504,7 @@ const KitchenInteriors = () => (
       </group>
     ))}
 
+    </>}
     <mesh position={[-1.65, 2.2, -5.03]} castShadow>
       <boxGeometry args={[2.5, 0.08, 1.2]} />
       <meshStandardMaterial color="#373a38" roughness={0.28} metalness={0.24} />
@@ -698,7 +563,7 @@ const KitchenInteriors = () => (
       </mesh>
       <mesh position={[0, 2.84, 0]} castShadow receiveShadow>
         <boxGeometry args={[4.48, 0.16, 2.42]} />
-        <meshStandardMaterial color="#c5b9a7" roughness={0.24} />
+        {slabColor ? <primitive object={slabMaterial} attach="material" dispose={null} /> : <meshStandardMaterial color="#c5b9a7" roughness={0.24} />}
       </mesh>
       {[-1.35, 0, 1.35].map((x) => (
         <mesh key={`island-panel-${x}`} position={[x, 1.88, 1.09]}>
@@ -734,14 +599,11 @@ const KitchenInteriors = () => (
     ))}
   </group>
 );
+};
 
 const LivingRoomFurniture = () => (
   <group>
-    <mesh position={[0, 0.04, -0.2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-      <planeGeometry args={[9.4, 7.2]} />
-      <meshStandardMaterial color="#d7c4af" roughness={0.97} />
-    </mesh>
-    <group rotation={[0, Math.PI, 0]}>
+    <group position={[0, 0, -2.1]} scale={1.25}>
       <Sofa />
     </group>
     <CoffeeTable />
@@ -760,10 +622,6 @@ const LivingRoomFurniture = () => (
 
 const BedroomFurniture = () => (
   <group>
-    <mesh position={[0, 0.04, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-      <planeGeometry args={[9.8, 9.4]} />
-      <meshStandardMaterial color="#d5c2ae" roughness={0.98} />
-    </mesh>
     <Bed />
     <SideTable position={[-4.15, 0, -3.25]} />
     <SideTable position={[4.15, 0, -3.25]} />
@@ -781,269 +639,129 @@ const RoomWallPanel = ({
   repeatWidth,
   repeatHeight,
   textureProps,
+  wallRegion,
   tiled,
   wallColor,
 }) => (
-  <mesh position={position} rotation={rotation} receiveShadow>
-    <planeGeometry args={dimensions} />
-    {tiled ? (
-      <TiledMaterial
-        {...textureProps}
-        repeatWidth={repeatWidth}
-        repeatHeight={repeatHeight}
-      />
-    ) : (
-      <meshStandardMaterial color={wallColor} roughness={0.88} />
-    )}
-  </mesh>
+  <group position={position} rotation={rotation}>
+    {tiled ? <TiledSurface {...textureProps} repeatWidth={repeatWidth} repeatHeight={repeatHeight} wallRegion={wallRegion} /> :
+      <mesh receiveShadow><planeGeometry args={dimensions} /><meshStandardMaterial color={wallColor} roughness={0.88} /></mesh>}
+  </group>
 );
 
-const AnimatedRoom = ({ room, children }) => {
-  const group = useRef();
-  const elapsed = useRef(0);
-
-  useEffect(() => {
-    elapsed.current = 0;
-  }, [room]);
-
-  useFrame((_, delta) => {
-    if (!group.current) return;
-    elapsed.current = Math.min(elapsed.current + delta, 0.85);
-    const progress = 1 - Math.pow(1 - elapsed.current / 0.85, 3);
-    group.current.position.y = (1 - progress) * -0.65;
-    group.current.scale.setScalar(0.94 + progress * 0.06);
-  });
-
-  return (
-    <group ref={group} key={room}>
-      {children}
-    </group>
-  );
+const RoomFurnishings = ({ room, slabColor, upperCabinets = true }) => {
+  const { width, depth } = ROOM_TEMPLATES[room];
+  return <group position={[room === "living" ? -width * 0.19 : 0, 0, -depth / 2 + 6.6]}>
+    {room === "living" && <LivingRoomFurniture />}
+    {room === "bedroom" && <BedroomFurniture />}
+    {room === "bathroom" && <BathroomFixtures />}
+    {room === "kitchen" && <KitchenInteriors slabColor={slabColor} upperCabinets={upperCabinets} />}
+  </group>;
 };
 
-const Room = ({ tile, room, surface }) => {
+const ArchitecturalDetails = ({ room, lighting }) => {
+  const { width, depth, height } = ROOM_TEMPLATES[room];
+  return <group>
+    {/* Shallow ceiling perimeter and warm recessed luminaires frame the room. */}
+    {[-1, 1].map((side) => <group key={side}>
+      <mesh position={[side * (width/2-0.65), height-0.2, 0]} receiveShadow>
+        <boxGeometry args={[1.3, 0.4, depth]} /><meshStandardMaterial color="#f3efe7" roughness={0.8} />
+      </mesh>
+      {[-0.33, -0.1, 0.13, 0.36].map((fraction) => <mesh key={fraction} position={[side*(width/2-0.7), height-0.41, depth*fraction]} rotation={[-Math.PI/2,0,0]}>
+        <circleGeometry args={[0.14, 24]} /><meshStandardMaterial color="#fff4d9" emissive="#ffe1b2" emissiveIntensity={lighting === "warm" ? 2 : 0.5} />
+      </mesh>)}
+    </group>)}
+    <mesh position={[0, height-0.2, -depth/2+0.6]}><boxGeometry args={[width,0.4,1.2]} /><meshStandardMaterial color="#f3efe7" roughness={0.8} /></mesh>
+    {/* Restrained fluted feature panel and a plant give scale without covering tiles. */}
+    {Array.from({length: 20}, (_, i) => <mesh key={i} position={[width*(0.22+i*0.0085), height*0.4, -depth/2+0.09]} castShadow>
+      <boxGeometry args={[0.1,height*0.76,0.16]} /><meshStandardMaterial color={i%3 ? "#b49a7c" : "#c0a98b"} roughness={0.78} />
+    </mesh>)}
+  </group>;
+};
+
+const ShowroomPlant = ({ room }) => {
+  const { width, depth } = ROOM_TEMPLATES[room];
+  return <group position={[width/2-2.1,0,-depth/2+2.2]}>
+    <mesh position={[0,0.65,0]} castShadow receiveShadow><cylinderGeometry args={[0.7,0.48,1.3,32]} /><meshStandardMaterial color="#d3cabb" roughness={0.87} /></mesh>
+    <mesh position={[0,2.4,0]} castShadow><cylinderGeometry args={[0.045,0.08,3.6,12]} /><meshStandardMaterial color="#6e5d42" roughness={0.9} /></mesh>
+    {Array.from({length:14}, (_,i) => <mesh key={i} position={[Math.sin(i*2.4)*0.6,2.3+i*0.17,Math.cos(i*2.4)*0.6]} rotation={[0.35, i*2.4, 0.5]} scale={[0.34,0.7,0.09]} castShadow>
+      <sphereGeometry args={[1,16,12]} /><meshStandardMaterial color={i%2 ? "#526c4c" : "#6c8256"} roughness={0.72} />
+    </mesh>)}
+  </group>;
+};
+
+const KitchenFeatureWall = ({ room, textureProps, coverage, wallColor }) => {
+  const { width, height } = ROOM_TEMPLATES[room];
+  const { backZ, backsplash } = getKitchenLayout(ROOM_TEMPLATES[room]);
+  if (coverage === "full") return <RoomWallPanel textureProps={textureProps} tiled wallColor={wallColor} position={[0, height / 2, backZ]} dimensions={[width, height]} repeatWidth={width} repeatHeight={height} />;
+  return <group>
+    <mesh position={[0, height / 2, backZ - 0.012]} receiveShadow><planeGeometry args={[width, height]} /><meshStandardMaterial color={wallColor} roughness={0.88} /></mesh>
+    <group position={[0, backsplash.bottom + backsplash.height / 2, backZ + 0.012]}>
+      <TiledSurface {...textureProps} repeatWidth={backsplash.width} repeatHeight={backsplash.height} wallRegion={{ fullWidth: width, fullHeight: height, centerX: 0, centerY: backsplash.bottom + backsplash.height / 2 - height / 2 }} />
+    </group>
+  </group>;
+};
+
+const Room = ({ tile, room, surface, appearance, wallAppearance, kitchen, inspection, quality }) => {
   const tileSize = useMemo(() => getTileDimensions(tile.size), [tile.size]);
-  const roughness = /(matte|mat\b|satin)/i.test(
-    `${tile.finish ?? ""} ${tile.description ?? ""}`
-  )
-    ? 0.75
-    : 0.14; // Low roughness enables photorealistic gloss reflections
-  const wallColor = room === "bathroom" ? "#dedbd3" : "#d8d1c7";
+  const { width, depth, height } = ROOM_TEMPLATES[room];
   const textureProps = {
-    imageUrl: tile.imageUrl,
-    tileWidth: tileSize.width,
-    tileHeight: tileSize.height,
-    roughness,
+    imageUrl: tile.imageUrl, faceUrls: tile.faceUrls,
+    normalMapUrl: tile.normalMapUrl, roughnessMapUrl: tile.roughnessMapUrl,
+    tileWidth: tileSize.width, tileHeight: tileSize.height, ...appearance,
   };
+  const wallMode = surface !== "floor";
+  const wallTextureProps = {
+    ...textureProps, ...wallAppearance, wallSurface: true,
+    rotation: getWallRotation(tileSize, wallAppearance.orientation),
+  };
+  const wallColor = room === "bathroom" ? "#e5e1d9" : "#e8e3db";
+  const panel = { textureProps: wallTextureProps, tiled: wallMode && !(room === "kitchen" && kitchen.coverage === "backsplash"), wallColor };
+  return <group>
+    {!wallMode && <ArchitecturalDetails room={room} lighting={appearance.lighting} />}
+    <mesh position={[0,height,0]} rotation={[Math.PI/2,0,0]}><planeGeometry args={[width,depth]} /><meshStandardMaterial color="#f4f0e9" roughness={0.95} /></mesh>
+    <group rotation={[-Math.PI / 2, 0, 0]}>
+      {surface !== "walls" ? <TiledSurface {...textureProps} repeatWidth={width} repeatHeight={depth} /> :
+        <mesh receiveShadow><planeGeometry args={[width, depth]} /><meshStandardMaterial color="#c7c1b7" roughness={0.86} /></mesh>}
+    </group>
+    {room === "kitchen" && wallMode ? <KitchenFeatureWall room={room} textureProps={wallTextureProps} coverage={kitchen.coverage} wallColor={wallColor} /> :
+      <RoomWallPanel {...panel} position={[0, height / 2, -depth / 2]} dimensions={[width, height]} repeatWidth={width} repeatHeight={height} />}
+    {/* Left wall surrounds a real, floor-height daylight opening. */}
+    <group position={[-width/2, 0, 0]} rotation={[0, Math.PI/2, 0]}>
+      {[-1,1].map((side) => <RoomWallPanel key={side} {...panel} position={[side*depth*0.35,height/2,0]} dimensions={[depth*0.3,height]} repeatWidth={depth*0.3} repeatHeight={height} wallRegion={{ fullWidth: depth, fullHeight: height, centerX: side*depth*0.35, centerY: 0 }} />)}
+      <RoomWallPanel {...panel} position={[0,height*0.95,0]} dimensions={[depth*0.4,height*0.1]} repeatWidth={depth*0.4} repeatHeight={height*0.1} wallRegion={{ fullWidth: depth, fullHeight: height, centerX: 0, centerY: height*0.45 }} />
+      <mesh position={[0,height*0.45,-0.12]}><planeGeometry args={[depth*0.4,height*0.9]} /><meshBasicMaterial color="#d7e6e9" /></mesh>
+      {[-1,-0.5,0,0.5,1].map((side) => <mesh key={side} position={[side*depth*0.2,height*0.45,0.04]} castShadow>
+        <boxGeometry args={[0.08,height*0.9,0.18]} /><meshStandardMaterial color="#5c584e" roughness={0.5} metalness={0.3} />
+      </mesh>)}
+      {[0.08,height*0.9].map((y) => <mesh key={y} position={[0,y,0.04]} castShadow><boxGeometry args={[depth*0.4,0.12,0.18]} /><meshStandardMaterial color="#5c584e" roughness={0.5} /></mesh>)}
+    </group>
+    <RoomWallPanel {...panel} position={[width / 2, height / 2, 0]} rotation={[0, -Math.PI / 2, 0]} dimensions={[depth, height]} repeatWidth={depth} repeatHeight={height} />
 
-  return (
-    <AnimatedRoom room={room}>
-      {/* Floor */}
-      <mesh position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[ROOM_TEMPLATES[room].width, ROOM_TEMPLATES[room].depth]} />
-        {surface !== "walls" ? (
-          <TiledMaterial
-            {...textureProps}
-            repeatWidth={ROOM_TEMPLATES[room].width}
-            repeatHeight={ROOM_TEMPLATES[room].depth}
-          />
-        ) : (
-          <meshStandardMaterial color="#c7c1b7" roughness={0.86} />
-        )}
-      </mesh>
-
-      {/* Ceiling visible from the interior camera. */}
-      <mesh
-        position={[0, ROOM_TEMPLATES[room].height, 0]}
-        rotation={[Math.PI / 2, 0, 0]}
-      >
-        <planeGeometry
-          args={[ROOM_TEMPLATES[room].width, ROOM_TEMPLATES[room].depth]}
-        />
-        <meshStandardMaterial color="#f4f2ee" roughness={0.92} />
-      </mesh>
-
-      {/* Back Wall */}
-      <mesh
-        position={[0, ROOM_TEMPLATES[room].height / 2, -ROOM_TEMPLATES[room].depth / 2]}
-        receiveShadow
-      >
-        <planeGeometry args={[ROOM_TEMPLATES[room].width, ROOM_TEMPLATES[room].height]} />
-        {surface !== "floor" ? (
-          <TiledMaterial
-            {...textureProps}
-            repeatWidth={ROOM_TEMPLATES[room].width}
-            repeatHeight={ROOM_TEMPLATES[room].height}
-          />
-        ) : (
-          <meshStandardMaterial color={wallColor} roughness={0.88} />
-        )}
-      </mesh>
-
-      {/* Left Wall */}
-      <mesh
-        position={[-ROOM_TEMPLATES[room].width / 2, ROOM_TEMPLATES[room].height / 2, 0]}
-        rotation={[0, Math.PI / 2, 0]}
-        receiveShadow
-      >
-        <planeGeometry args={[ROOM_TEMPLATES[room].depth, ROOM_TEMPLATES[room].height]} />
-        {surface !== "floor" ? (
-          <TiledMaterial
-            {...textureProps}
-            repeatWidth={ROOM_TEMPLATES[room].depth}
-            repeatHeight={ROOM_TEMPLATES[room].height}
-          />
-        ) : (
-          <meshStandardMaterial color={wallColor} roughness={0.88} />
-        )}
-      </mesh>
-
-      {/* Right Wall */}
-      <mesh
-        position={[ROOM_TEMPLATES[room].width / 2, ROOM_TEMPLATES[room].height / 2, 0]}
-        rotation={[0, -Math.PI / 2, 0]}
-        receiveShadow
-      >
-        <planeGeometry args={[ROOM_TEMPLATES[room].depth, ROOM_TEMPLATES[room].height]} />
-        {surface !== "floor" ? (
-          <TiledMaterial
-            {...textureProps}
-            repeatWidth={ROOM_TEMPLATES[room].depth}
-            repeatHeight={ROOM_TEMPLATES[room].height}
-          />
-        ) : (
-          <meshStandardMaterial color={wallColor} roughness={0.88} />
-        )}
-      </mesh>
-
-      {/* Front wall segments leave a real opening for a window. */}
-      {(() => {
-        const roomWidth = ROOM_TEMPLATES[room].width;
-        const roomDepth = ROOM_TEMPLATES[room].depth;
-        const roomHeight = ROOM_TEMPLATES[room].height;
-        const windowWidth = Math.min(5.2, roomWidth * 0.48);
-        const windowBottom = 1.55;
-        const windowTop = roomHeight - 1.2;
-        const sideWidth = (roomWidth - windowWidth) / 2;
-        const frontZ = roomDepth / 2;
-        const tiled = surface !== "floor";
-        const frontWallPanelProps = {
-          rotation: [0, Math.PI, 0],
-          textureProps,
-          tiled,
-          wallColor,
-        };
-
-        return (
-          <group>
-            {[-1, 1].map((side) => (
-              <RoomWallPanel
-                key={`front-wall-side-${side}`}
-                {...frontWallPanelProps}
-                position={[
-                  side * (windowWidth / 2 + sideWidth / 2),
-                  roomHeight / 2,
-                  frontZ,
-                ]}
-                dimensions={[sideWidth, roomHeight]}
-                repeatWidth={sideWidth}
-                repeatHeight={roomHeight}
-              />
-            ))}
-            <RoomWallPanel
-              {...frontWallPanelProps}
-              position={[0, (windowTop + roomHeight) / 2, frontZ]}
-              dimensions={[windowWidth, roomHeight - windowTop]}
-              repeatWidth={windowWidth}
-              repeatHeight={roomHeight - windowTop}
-            />
-            <RoomWallPanel
-              {...frontWallPanelProps}
-              position={[0, windowBottom / 2, frontZ]}
-              dimensions={[windowWidth, windowBottom]}
-              repeatWidth={windowWidth}
-              repeatHeight={windowBottom}
-            />
-
-            <mesh
-              position={[0, (windowBottom + windowTop) / 2, frontZ - 0.06]}
-            >
-              <planeGeometry args={[windowWidth - 0.16, windowTop - windowBottom - 0.16]} />
-              <meshPhysicalMaterial
-                color="#c7e0e8"
-                roughness={0.12}
-                metalness={0.02}
-                transmission={0.82}
-                thickness={0.04}
-                transparent
-                opacity={0.34}
-                side={THREE.DoubleSide}
-              />
-            </mesh>
-            {[-1, 1].map((side) => (
-              <mesh
-                key={`window-frame-side-${side}`}
-                position={[side * windowWidth / 2, (windowBottom + windowTop) / 2, frontZ - 0.12]}
-                castShadow
-              >
-                <boxGeometry args={[0.12, windowTop - windowBottom, 0.16]} />
-                <meshStandardMaterial color="#f5f1e9" roughness={0.68} />
-              </mesh>
-            ))}
-            {[windowBottom, windowTop].map((height) => (
-              <mesh
-                key={`window-frame-horizontal-${height}`}
-                position={[0, height, frontZ - 0.12]}
-                castShadow
-              >
-                <boxGeometry args={[windowWidth, 0.12, 0.16]} />
-                <meshStandardMaterial color="#f5f1e9" roughness={0.68} />
-              </mesh>
-            ))}
-          </group>
-        );
-      })()}
-
-      {/* Realistic contact shadows beneath all furniture onto the tile floor */}
-      <ContactShadows
-        position={[0, 0.008, 0]}
-        opacity={0.65}
-        scale={22}
-        blur={1.6}
-        far={4.5}
-      />
-
-      {/* Low trim frames the tile edge around the room perimeter. */}
-      {[
-        {
-          position: [0, 0.2, -ROOM_TEMPLATES[room].depth / 2 + 0.045],
-          dimensions: [ROOM_TEMPLATES[room].width, 0.4, 0.09],
-        },
-        {
-          position: [0, 0.2, ROOM_TEMPLATES[room].depth / 2 - 0.045],
-          dimensions: [ROOM_TEMPLATES[room].width, 0.4, 0.09],
-        },
-        {
-          position: [-ROOM_TEMPLATES[room].width / 2 + 0.045, 0.2, 0],
-          dimensions: [0.09, 0.4, ROOM_TEMPLATES[room].depth],
-        },
-        {
-          position: [ROOM_TEMPLATES[room].width / 2 - 0.045, 0.2, 0],
-          dimensions: [0.09, 0.4, ROOM_TEMPLATES[room].depth],
-        },
-      ].map(({ position, dimensions }, index) => (
-        <mesh key={`baseboard-${index}`} position={position} castShadow>
-          <boxGeometry args={dimensions} />
-          <meshStandardMaterial color="#8c735e" roughness={0.72} />
-        </mesh>
-      ))}
-
-      {room === "living" && <LivingRoomFurniture />}
-      {room === "bedroom" && <BedroomFurniture />}
-      {room === "bathroom" && <BathroomFixtures />}
-      {room === "kitchen" && <KitchenInteriors />}
-    </AnimatedRoom>
-  );
+    {[-1, 1].map((side) => <RoomWallPanel key={side} {...panel} position={[side * width * 0.375, height / 2, depth / 2]} rotation={[0, Math.PI, 0]} dimensions={[width / 4, height]} repeatWidth={width / 4} repeatHeight={height} wallRegion={{ fullWidth: width, fullHeight: height, centerX: side*width*0.375, centerY: 0 }} />)}
+    <RoomWallPanel {...panel} position={[0, height * 0.95, depth / 2]} rotation={[0, Math.PI, 0]} dimensions={[width / 2, height * 0.1]} repeatWidth={width / 2} repeatHeight={height * 0.1} wallRegion={{ fullWidth: width, fullHeight: height, centerX: 0, centerY: height*0.45 }} />
+    {[-1, 0, 1].map((side) => <mesh key={side} position={[side * width / 4, height * 0.45, depth / 2]} castShadow>
+      <boxGeometry args={[0.09, height * 0.9, 0.12]} /><meshStandardMaterial color="#554b40" roughness={0.45} metalness={0.3} />
+    </mesh>)}
+    <mesh position={[0, height * 0.45, depth / 2 + 0.05]} rotation={[0, Math.PI, 0]}>
+      <planeGeometry args={[width / 2, height * 0.9]} />
+      <meshStandardMaterial color="#dbe9eb" emissive="#dbe9eb" emissiveIntensity={0.45} roughness={0.2} />
+    </mesh>
+    {[
+      [[0, 0.15, -depth/2+0.04], [width, 0.3, 0.08]],
+      [[-width/2+0.04, 0.15, 0], [0.08, 0.3, depth]],
+      [[width/2-0.04, 0.15, 0], [0.08, 0.3, depth]],
+    ].map(([position, dimensions], index) => <mesh key={index} position={position} receiveShadow>
+      <boxGeometry args={dimensions} /><meshStandardMaterial color="#c1b4a2" roughness={0.65} />
+    </mesh>)}
+    {appearance.furniture && <>
+      {/* Existing furniture remains in feet, placed against the enlarged back wall. */}
+      {room === "kitchen" && wallMode ? <WallKitchen room={ROOM_TEMPLATES[room]} slabColor={kitchen.slabColor} upperCabinets={kitchen.upperCabinets} inspection={inspection} /> :
+        !inspection && <RoomFurnishings room={room} slabColor={kitchen.slabColor} upperCabinets={kitchen.upperCabinets} />}
+      {!inspection && <ShowroomPlant room={room} />}
+      {quality !== "performance" && <ContactShadows key={`${room}-${surface}-${tile.imageUrl}-${appearance.rotation}-${appearance.pattern}-${appearance.jointWidth}-${wallMode ? `${inspection}-${kitchen.upperCabinets}` : "floor"}`} position={[0, 0.015, 0]} opacity={0.28} scale={Math.max(width, depth)} blur={2.5} far={5} resolution={256} frames={1} />}
+    </>}
+  </group>;
 };
 
 const PreviewLoadingFallback = () => (
@@ -1084,15 +802,82 @@ const TileVisualizer = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const tile = location.state?.tile;
+  const [initialCamera] = useState(() => {
+    if (tile?.type !== "wall") return DEFAULT_CAMERA;
+    const view = getWallCameraView(ROOM_TEMPLATES.living, "front");
+    return { position: view.position, fov: view.fov, near: 0.05, far: 120 };
+  });
   const [room, setRoom] = useState("living");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenError, setFullscreenError] = useState("");
   const [autoRotate, setAutoRotate] = useState(true);
   const [autoZoom, setAutoZoom] = useState(true);
+  const [preset, setPreset] = useState("close");
+  const [wallPreset, setWallPreset] = useState("front");
+  const [wallOrientation, setWallOrientation] = useState("vertical");
+  const [wallPattern, setWallPattern] = useState("straight");
+  const [wallFinish, setWallFinish] = useState("product");
+  const [wallGroutColor, setWallGroutColor] = useState("#b5b2ab");
+  const [wallJointWidth, setWallJointWidth] = useState(2);
+  const [slabColor, setSlabColor] = useState(null);
+  const [upperCabinets, setUpperCabinets] = useState(true);
+  const [coverage, setCoverage] = useState("full");
+  const [inspection, setInspection] = useState(false);
+  const [cameraReset, setCameraReset] = useState(0);
+  const [finish, setFinish] = useState("product");
+  const [groutColor, setGroutColor] = useState("#b5b2ab");
+  const [jointWidth, setJointWidth] = useState(2);
+  const [pattern, setPattern] = useState("straight");
+  const [rotation, setRotation] = useState(0);
+  const [furniture, setFurniture] = useState(true);
+  const [lighting, setLighting] = useState("daylight");
+  const [quality, setQuality] = useState("balanced");
+  const dimensions = getTileDimensions(tile?.size);
+  const resolvedFinish = finish === "product" ? getProductFinish(tile) : finish;
   const stageRef = useRef(null);
   const [surface, setSurface] = useState(
     tile?.type === "wall" ? "walls" : "floor"
   );
+
+  const wallMode = surface !== "floor";
+  const activePreset = wallMode ? wallPreset : preset;
+  const resolvedWallFinish = wallFinish === "product" ? getProductFinish(tile) : wallFinish;
+  const cameraPresets = wallMode ? {
+    ...(surface === "both" ? { balanced: "Floor & Wall" } : {}),
+    ...Object.fromEntries(Object.entries(WALL_CAMERA_PRESETS).filter(([value]) => value !== "backsplash" || room === "kitchen")),
+  } : CAMERA_PRESETS;
+
+  const selectSurface = (nextSurface) => {
+    if (surface === nextSurface) return;
+    setSurface(nextSurface);
+    setInspection(false);
+    setWallPreset(nextSurface === "both" ? "balanced" : "front");
+    setCameraReset((value) => value + 1);
+  };
+
+  const selectCamera = (nextPreset) => {
+    if (wallMode) setWallPreset(nextPreset);
+    else setPreset(nextPreset);
+    setInspection(false);
+    setCameraReset((value) => value + 1);
+    setAutoRotate(false);
+    setAutoZoom(false);
+  };
+
+  const changeRoom = (nextRoom) => {
+    setRoom(nextRoom);
+    setInspection(false);
+    if (wallMode) setWallPreset(surface === "both" ? "balanced" : "front");
+  };
+
+  const inspectWall = () => {
+    const nextInspection = !inspection;
+    setInspection(nextInspection);
+    setWallPreset(nextInspection ? (room === "kitchen" && coverage === "backsplash" ? "backsplash" : "inspect") : (surface === "both" ? "balanced" : "front"));
+    setCameraReset((value) => value + 1);
+    setAutoRotate(false);
+    setAutoZoom(false);
+  };
 
   useEffect(() => {
     const syncFullscreenState = () => {
@@ -1107,10 +892,18 @@ const TileVisualizer = () => {
     try {
       if (document.fullscreenElement) {
         await document.exitFullscreen();
-      } else if (stageRef.current?.requestFullscreen) {
-        await stageRef.current.requestFullscreen();
       } else {
-        setFullscreenError("Full screen is not supported by this browser.");
+        setAutoRotate(true);
+        setAutoZoom(true);
+        if (wallMode) setWallPreset("wall-close");
+        else setPreset("close");
+        setInspection(false);
+        setCameraReset((value) => value + 1);
+        if (stageRef.current?.requestFullscreen) {
+          await stageRef.current.requestFullscreen();
+        } else {
+          setFullscreenError("Full screen is not supported by this browser.");
+        }
       }
     } catch (error) {
       console.error("Unable to change visualizer full-screen mode:", error);
@@ -1147,7 +940,7 @@ const TileVisualizer = () => {
             ← Back to products
           </button>
           <div>
-            <span className="tile-visualizer-eyebrow">360° ROOM PREVIEW</span>
+            <span className="tile-visualizer-eyebrow">TILES WALA · MATERIAL STUDIO</span>
             <h1>{tile.name}</h1>
             <p>{tile.size}{tile.finish ? ` · ${tile.finish}` : ""}</p>
           </div>
@@ -1155,7 +948,7 @@ const TileVisualizer = () => {
         <div className="tile-visualizer-controls">
           <label>
             Room
-            <select value={room} onChange={(event) => setRoom(event.target.value)}>
+            <select value={room} onChange={(event) => changeRoom(event.target.value)}>
               {Object.entries(ROOM_TEMPLATES).map(([key, template]) => (
                 <option value={key} key={key}>{template.label}</option>
               ))}
@@ -1171,7 +964,7 @@ const TileVisualizer = () => {
               <button
                 className={surface === value ? "is-selected" : ""}
                 key={value}
-                onClick={() => setSurface(value)}
+                onClick={() => selectSurface(value)}
                 type="button"
                 aria-pressed={surface === value}
               >
@@ -1192,11 +985,62 @@ const TileVisualizer = () => {
         </div>
       </header>
 
+      <details className="tile-visualizer-settings">
+        <summary>Tile & scene settings</summary>
+        <div className="tile-visualizer-settings-grid">
+          {surface !== "walls" && <>
+          {surface === "both" && <p className="tile-visualizer-settings-heading">Floor tile settings</p>}
+          <label>Finish<select value={finish} onChange={(e) => setFinish(e.target.value)}>
+            <option value="product">Product finish ({FINISHES[getProductFinish(tile)].label})</option>
+            {Object.entries(FINISHES).map(([value, item]) => <option key={value} value={value}>{item.label}</option>)}
+          </select></label>
+          <label>Layout<select value={pattern} onChange={(e) => setPattern(e.target.value)}>
+            <option value="straight">Straight</option><option value="brick">Brick / staggered</option><option value="vertical">Vertical</option><option value="horizontal">Horizontal</option>
+          </select></label>
+          <label>Rotation<select value={rotation} onChange={(e) => setRotation(Number(e.target.value))}><option value={0}>0°</option><option value={90}>90°</option></select></label>
+          <label>Grout / epoxy<select value={groutColor} onChange={(e) => setGroutColor(e.target.value)}>
+            <option value="#eeeae2">White</option><option value="#b5b2ab">Light Grey</option><option value="#626363">Dark Grey</option><option value="#c6b599">Beige</option><option value="#272727">Black</option>
+          </select></label>
+          <label>Joint width: {jointWidth} mm<input aria-label="Joint width" type="range" min="1" max="5" step="0.5" value={jointWidth} onChange={(e) => setJointWidth(Number(e.target.value))} /></label>
+          </>}
+          {wallMode && <>
+            <p className="tile-visualizer-settings-heading">Wall tile settings</p>
+            <label>Wall Tile Orientation<select value={wallOrientation} onChange={(e) => setWallOrientation(e.target.value)}>
+              <option value="vertical">Vertical</option><option value="horizontal">Horizontal</option>
+            </select></label>
+            <label>Wall layout<select value={wallPattern} onChange={(e) => setWallPattern(e.target.value)}><option value="straight">Straight</option><option value="brick">Brick / staggered</option></select></label>
+            <label>Wall finish<select value={wallFinish} onChange={(e) => setWallFinish(e.target.value)}>
+              <option value="product">Product finish ({FINISHES[getProductFinish(tile)].label})</option>
+              {Object.entries(FINISHES).map(([value, item]) => <option key={value} value={value}>{item.label}</option>)}
+            </select></label>
+            <label>Wall grout / epoxy<select value={wallGroutColor} onChange={(e) => setWallGroutColor(e.target.value)}>
+              <option value="#eeeae2">White</option><option value="#b5b2ab">Light Grey</option><option value="#626363">Dark Grey</option><option value="#c6b599">Beige</option><option value="#272727">Black</option>
+            </select></label>
+            <label>Wall joint width: {wallJointWidth} mm<input aria-label="Wall joint width" type="range" min="1" max="5" step="0.5" value={wallJointWidth} onChange={(e) => setWallJointWidth(Number(e.target.value))} /></label>
+            {Math.abs(dimensions.width - dimensions.height) < 0.001 && <small className="tile-visualizer-square-note">Square tiles retain their dimensions; orientation rotates the tile face.</small>}
+          </>}
+          {room === "kitchen" && <>
+            <p className="tile-visualizer-settings-heading">Kitchen customization</p>
+            <fieldset className="tile-visualizer-slab-colors">
+              <legend>Kitchen Slab Color</legend>
+              {["white", "black"].map((value) => <button key={value} type="button" aria-label={value === "white" ? "White slab" : "Black slab"} aria-pressed={(slabColor || "white") === value} onClick={() => setSlabColor(value)}>
+                <span className={value === "white" ? "slab-swatch-white" : "slab-swatch-black"} aria-hidden="true" />{value === "white" ? "White" : "Black"}
+              </button>)}
+            </fieldset>
+            {wallMode && <label>Tile Coverage<select value={coverage} onChange={(e) => setCoverage(e.target.value)}><option value="full">Full Wall</option><option value="backsplash">Backsplash Only</option></select></label>}
+            <label className="tile-visualizer-checkbox"><input type="checkbox" checked={upperCabinets} onChange={(e) => setUpperCabinets(e.target.checked)} />Show upper cabinets</label>
+          </>}
+          <label>Lighting<select value={lighting} onChange={(e) => setLighting(e.target.value)}><option value="daylight">Daylight</option><option value="warm">Warm interior</option></select></label>
+          <label>Quality<select value={quality} onChange={(e) => setQuality(e.target.value)}><option value="performance">Performance</option><option value="balanced">Balanced</option><option value="high">High Quality</option></select></label>
+          <label className="tile-visualizer-checkbox"><input type="checkbox" checked={furniture} onChange={(e) => setFurniture(e.target.checked)} />Show furniture</label>
+        </div>
+      </details>
       <section
         className="tile-visualizer-stage"
         ref={stageRef}
         aria-label={`${tile.name} 3D room preview`}
       >
+        <div className="tile-visualizer-overlay-toolbar">
         {isFullscreen && (
           <button
             className="tile-visualizer-exit-fullscreen"
@@ -1238,6 +1082,12 @@ const TileVisualizer = () => {
               : surface.charAt(0).toUpperCase() + surface.slice(1)
           }
         </div>
+        </div>
+        <div className={`tile-visualizer-camera-presets${wallMode ? " tile-visualizer-wall-cameras" : ""}`} role="group" aria-label="Camera views">
+          {Object.entries(cameraPresets).map(([value, label]) => <button key={value} type="button" aria-pressed={activePreset === value} onClick={() => selectCamera(value)}>{label}</button>)}
+          {wallMode && <button type="button" aria-pressed={inspection} onClick={inspectWall}>{inspection ? "Exit wall inspection" : "Inspect Wall Tiles"}</button>}
+          <button type="button" onClick={() => selectCamera(wallMode ? (surface === "both" ? "balanced" : "front") : "floor")}>Reset camera</button>
+        </div>
         <div className="tile-visualizer-tile-chip">
           <img src={tile.imageUrl} alt="" />
           <span>
@@ -1245,67 +1095,48 @@ const TileVisualizer = () => {
             <small>{tile.size} tile</small>
           </span>
         </div>
-        <VisualizerErrorBoundary>
+        <VisualizerErrorBoundary key={tile.imageUrl}>
           <Canvas
-            shadows
-            dpr={[1, 2]}
-            camera={{ position: [0, 4.2, 3.5], fov: 65, near: 0.1, far: 100 }}
-            gl={{
-              antialias: true,
-              toneMapping: THREE.ACESFilmicToneMapping,
-              outputColorSpace: THREE.SRGBColorSpace,
-            }}
-            onCreated={({ gl }) => {
-              gl.toneMappingExposure = 1.05;
-            }}
+            shadows dpr={[1, QUALITY[quality].dpr]}
+            camera={initialCamera}
+            gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, outputColorSpace: THREE.SRGBColorSpace }}
+            onCreated={({ gl }) => { gl.toneMappingExposure = 1; gl.shadowMap.type = THREE.PCFSoftShadowMap; }}
           >
-            <color attach="background" args={["#e7e9e8"]} />
-
-            {/* HDR Environment reflections for glass, porcelain, and gloss bounce */}
-            <Environment preset="apartment" background={false} environmentIntensity={0.8} />
-
-            <hemisphereLight args={["#fffaf2", "#a99b8b", 1.2]} />
-            <ambientLight intensity={0.45} />
-            <directionalLight
-              position={[7, 15, 9]}
-              intensity={2.8}
-              color="#fff1dc"
-              castShadow
-              shadow-mapSize-width={2048}
-              shadow-mapSize-height={2048}
-              shadow-camera-left={-12}
-              shadow-camera-right={12}
-              shadow-camera-top={14}
-              shadow-camera-bottom={-10}
-              shadow-bias={-0.00015}
-            />
-            <pointLight position={[-5, 7, 5]} intensity={0.7} color="#ffe9ca" />
-            <pointLight position={[5, 6, -4]} intensity={0.5} color="#d7ecff" />
-            {room === "bathroom" && (
-              <>
-                <pointLight position={[-2.8, 5.8, -3.4]} intensity={0.9} color="#fff2d6" />
-                <pointLight position={[2.7, 6.1, -2.7]} intensity={0.75} color="#e8f7ff" />
-              </>
-            )}
-            {room === "kitchen" && (
-              <>
-                <pointLight position={[-2.2, 5.3, -3.5]} intensity={0.85} color="#fff1d4" />
-                <pointLight position={[2.4, 5.1, -3.1]} intensity={0.8} color="#fff7e7" />
-              </>
-            )}
-
+            <color attach="background" args={["#e9e5df"]} />
             <Suspense fallback={<PreviewLoadingFallback />}>
-              <Room tile={tile} room={room} surface={surface} />
+              {/* Local studio lighting: no remote HDR download or dependency on a CDN. */}
+              <Environment key={`${quality}-${lighting}-${room}-${furniture}-${wallMode ? `${slabColor}-${upperCabinets}-${inspection}-${surface}` : `floor-${slabColor}-${upperCabinets}`}`} resolution={quality === "high" ? 256 : 128} frames={1}>
+                <Lightformer form="rect" intensity={lighting === "warm" ? 1.8 : 3} color={lighting === "warm" ? "#ffe1b2" : "#e9f3ff"} position={[0, 5, 16]} scale={[12, 8, 1]} />
+                <Lightformer form="rect" intensity={1.2} color="#fff0d8" position={[-12, 8, 0]} rotation={[0, Math.PI / 2, 0]} scale={[8, 4, 1]} />
+                <Lightformer form="rect" intensity={1.5} position={[0, 10, -8]} rotation={[Math.PI / 2, 0, 0]} scale={[10, 5, 1]} />
+                <hemisphereLight intensity={1.5} args={["#fff4df", "#847661", 1.5]} />
+                {furniture && (wallMode && room === "kitchen" ? <WallKitchen room={ROOM_TEMPLATES[room]} slabColor={slabColor} upperCabinets={upperCabinets} inspection={inspection} /> :
+                  !inspection && <RoomFurnishings room={room} slabColor={slabColor} upperCabinets={upperCabinets} />)}
+                {wallMode && <Lightformer form="rect" intensity={0.8} color="#eef4ff" position={[0, 6, 1]} rotation={[0, Math.PI, 0]} scale={[6, 5, 1]} />}
+              </Environment>
+              <hemisphereLight args={[lighting === "warm" ? "#ffecd4" : "#f0f6ff", "#a99b8b", 1.1]} />
+              <directionalLight key={quality} position={[8, 14, 20]} intensity={lighting === "warm" ? 1.2 : 2.2} color={lighting === "warm" ? "#ffd6a1" : "#fff3df"} castShadow
+                shadow-mapSize-width={QUALITY[quality].shadow} shadow-mapSize-height={QUALITY[quality].shadow}
+                shadow-camera-left={-22} shadow-camera-right={22} shadow-camera-top={24} shadow-camera-bottom={-24}
+                shadow-camera-far={85} shadow-normalBias={0.025} shadow-bias={-0.0001} shadow-radius={3} />
+              <pointLight position={[-5, 9, -10]} intensity={lighting === "warm" ? 100 : 25} color="#ffe1b2" decay={2} />
+              {wallMode && <Suspense fallback={null}><WallLighting room={ROOM_TEMPLATES[room]} kitchen={room === "kitchen"} quality={quality} furniture={furniture} upperCabinets={upperCabinets} inspection={inspection} view={activePreset} /></Suspense>}
+              <Room tile={tile} room={room} surface={surface} quality={quality} inspection={inspection}
+                wallAppearance={{ orientation: wallOrientation, pattern: wallPattern, finish: resolvedWallFinish, groutColor: wallGroutColor, jointWidth: wallJointWidth }}
+                kitchen={{ slabColor, upperCabinets, coverage }}
+                appearance={{ finish: resolvedFinish, groutColor, jointWidth, pattern, rotation, furniture, lighting }} />
             </Suspense>
-            <RoomOrbitControls autoRotate={autoRotate} autoZoom={autoZoom} />
+            {!wallMode && preset === "top" && <LayoutCamera room={room} />}
+            <RoomOrbitControls room={room} surface={surface} preset={activePreset} reset={cameraReset} autoRotate={autoRotate} autoZoom={autoZoom} upperCabinets={upperCabinets && !inspection} coverage={coverage} />
           </Canvas>
         </VisualizerErrorBoundary>
         <p className="tile-visualizer-hint">
-          Drag or swipe to look around · scroll or pinch to zoom
+          Drag to orbit · scroll or pinch to zoom · right-drag to pan
         </p>
       </section>
       <p className="tile-visualizer-note">
-        Preview only. Tile scale is estimated from the product size and room template.
+        {dimensions.fallback ? "Size unavailable: preview uses a 2 × 4 ft tile. " : "Tile scale follows product dimensions. "}
+        {wallMode ? wallJointWidth : jointWidth} mm joints · {FINISHES[wallMode ? resolvedWallFinish : resolvedFinish].label} · Preview colors and reflections vary with your display.
       </p>
       {fullscreenError && (
         <p className="tile-visualizer-fullscreen-error" role="alert">

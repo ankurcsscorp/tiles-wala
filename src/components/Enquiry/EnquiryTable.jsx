@@ -345,7 +345,7 @@ const EnquiryTable = () => {
           placeholder="Search all enquiries..."
           aria-label="Search all enquiry fields"
           sx={{ mb: 2 }}
-          InputProps={{
+          slotProps={{input:{
             startAdornment: (
               <InputAdornment position="start">
                 <SearchIcon />
@@ -362,7 +362,7 @@ const EnquiryTable = () => {
                 </IconButton>
               </InputAdornment>
             ) : null,
-          }}
+          }}}
         />
 
         {/* Search Results Toolbar */}
@@ -636,7 +636,7 @@ const EnquiryTable = () => {
             {columns
               .filter((column) => column !== "remark")
               .map((column) => (
-                <Grid item xs={12} sm={6} key={column}>
+                <Grid size={{xs:12,sm:6}}    key={column}>
                   <TextField
                     fullWidth
                     size="small"
@@ -646,7 +646,7 @@ const EnquiryTable = () => {
                   />
                 </Grid>
               ))}
-            <Grid item xs={12}>
+            <Grid size={{xs:12}}  >
               <TextField
                 fullWidth
                 multiline

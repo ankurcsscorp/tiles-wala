@@ -1,0 +1,12 @@
+.inventory-page { max-width: 1440px; margin: 0 auto; padding: 28px 20px 48px; }
+.inventory-summary { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin: 22px 0; }
+.inventory-summary .MuiPaper-root { display: flex; flex-direction: column; gap: 8px; padding: 16px; }
+.inventory-summary span { color: #637083; font-size: .88rem; }
+.inventory-summary b { color: #173f35; font-size: 1.25rem; }
+.inventory-panel { margin-top: 20px; overflow: hidden; }
+.inventory-table-wrap { width: 100%; overflow-x: auto; max-height: 68vh; }
+.inventory-table-wrap .MuiTableCell-head { font-weight: 700; background: #f4f7f5; white-space: nowrap; }
+.inventory-table-wrap .MuiTableCell-body { white-space: nowrap; }
+.adjustment-form { display: flex; flex-direction: column; gap: 16px; padding: 22px; }
+.adjustment-line { align-items: flex-start; }
+@media (max-width: 760px) { .inventory-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .inventory-page { padding: 20px 12px 36px; } }

@@ -7,7 +7,7 @@ import {
   useLocation,
 } from "react-router-dom";
 import Header from "./components/Header";
-import OnlineStore from "./components/OnlineStore";
+import BusinessShell from "./components/layout/BusinessShell";
 import ContactUs from "./components/ContactUs";
 import NewCollection from "./components/NewCollection";
 import TileVisualizer from "./components/TileVisualizer";
@@ -18,6 +18,20 @@ import EnquiryTable from "./components/Enquiry/EnquiryTable";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import SaleBonusManagement from "./components/sales/SaleBonusManagement";
 import SaleBonus from "./components/sales/SaleBonus";
+import StoreManagement from "./components/stores/StoreManagement";
+import { StoreProvider } from "./context/StoreContext";
+import ProductManagement from "./components/products/ProductManagement";
+import CustomerManagement from "./components/customers/CustomerManagement";
+import SupplierManagement from "./components/suppliers/SupplierManagement";
+import InventoryManagement from "./components/inventory/InventoryManagement";
+import PurchaseManagement from "./components/purchases/PurchaseManagement";
+import InvoiceSettings from "./components/settings/InvoiceSettings";
+import SalesBilling from "./components/sales/SalesBilling";
+import PaymentManagement from "./components/payments/PaymentManagement";
+import StockTransferManagement from "./components/transfers/StockTransferManagement";
+import ReturnManagement from "./components/returns/ReturnManagement";
+import FinancialReporting from "./components/finance/FinancialReporting";
+import Dashboard from "./components/dashboard/Dashboard";
 
 const ProtectedRoute = ({ allowedUserTypes, children }) => {
   const { isAuthenticated, user } = useAuth();
@@ -42,16 +56,38 @@ const ProtectedRoute = ({ allowedUserTypes, children }) => {
 const AppContent = () => {
   const location = useLocation();
   const isVisualizer = location.pathname === "/visualizer";
+  const { isAuthenticated } = useAuth();
+  const Shell = isAuthenticated && !isVisualizer ? BusinessShell : React.Fragment;
 
   return (
     <>
-      {!isVisualizer && <Header />}
+      {!isVisualizer && !isAuthenticated && <Header />}
+      <Shell>
       <Routes>
         <Route path="/auth" element={<Auth />} />
         <Route path="/" element={<NewCollection />} />
         <Route path="/visualizer" element={<TileVisualizer />} />
         <Route path="/contact" element={<ContactUs />} />
         <Route path="/enquiry" element={<EnquiryForm />} />
+        <Route path="/stores" element={<ProtectedRoute allowedUserTypes={["admin"]}><StoreManagement /></ProtectedRoute>} />
+        <Route path="/products" element={<ProtectedRoute allowedUserTypes={["admin"]}><ProductManagement /></ProtectedRoute>} />
+        <Route path="/customers" element={<ProtectedRoute allowedUserTypes={["admin", "salesperson"]}><CustomerManagement /></ProtectedRoute>} />
+        <Route path="/customers/:id" element={<ProtectedRoute allowedUserTypes={["admin", "salesperson"]}><CustomerManagement /></ProtectedRoute>} />
+        <Route path="/suppliers" element={<ProtectedRoute allowedUserTypes={["admin", "salesperson"]}><SupplierManagement /></ProtectedRoute>} />
+        <Route path="/suppliers/:id" element={<ProtectedRoute allowedUserTypes={["admin", "salesperson"]}><SupplierManagement /></ProtectedRoute>} />
+        <Route path="/inventory" element={<ProtectedRoute allowedUserTypes={["admin", "salesperson"]}><InventoryManagement /></ProtectedRoute>} />
+        <Route path="/purchases" element={<ProtectedRoute allowedUserTypes={["admin", "salesperson"]}><PurchaseManagement /></ProtectedRoute>} />
+        <Route path="/purchases/:id" element={<ProtectedRoute allowedUserTypes={["admin", "salesperson"]}><PurchaseManagement /></ProtectedRoute>} />
+        <Route path="/settings/invoices" element={<ProtectedRoute allowedUserTypes={["admin", "salesperson"]}><InvoiceSettings /></ProtectedRoute>} />
+        <Route path="/billing" element={<ProtectedRoute allowedUserTypes={["admin", "salesperson"]}><SalesBilling /></ProtectedRoute>} />
+        <Route path="/sales/:id" element={<ProtectedRoute allowedUserTypes={["admin", "salesperson"]}><SalesBilling /></ProtectedRoute>} />
+        <Route path="/payments" element={<ProtectedRoute allowedUserTypes={["admin", "salesperson"]}><PaymentManagement /></ProtectedRoute>} />
+        <Route path="/transfers" element={<ProtectedRoute allowedUserTypes={["admin", "salesperson"]}><StockTransferManagement /></ProtectedRoute>} />
+        <Route path="/transfers/:id" element={<ProtectedRoute allowedUserTypes={["admin", "salesperson"]}><StockTransferManagement /></ProtectedRoute>} />
+        <Route path="/returns" element={<ProtectedRoute allowedUserTypes={["admin", "salesperson"]}><ReturnManagement /></ProtectedRoute>} />
+        <Route path="/returns/:type/:id" element={<ProtectedRoute allowedUserTypes={["admin", "salesperson"]}><ReturnManagement /></ProtectedRoute>} />
+        <Route path="/financial-reports" element={<ProtectedRoute allowedUserTypes={["admin", "salesperson"]}><FinancialReporting /></ProtectedRoute>} />
+        <Route path="/dashboard" element={<ProtectedRoute allowedUserTypes={["admin", "salesperson"]}><Dashboard /></ProtectedRoute>} />
         <Route
           path="/sales-bonus"
           element={
@@ -77,7 +113,8 @@ const AppContent = () => {
           }
         />
       </Routes>
-      {!isVisualizer && <Footer />}
+      </Shell>
+      {!isVisualizer && !isAuthenticated && <Footer />}
     </>
   );
 };
@@ -85,9 +122,11 @@ const AppContent = () => {
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <AppContent />
-      </Router>
+      <StoreProvider>
+        <Router>
+          <AppContent />
+        </Router>
+      </StoreProvider>
     </AuthProvider>
   );
 }
