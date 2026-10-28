@@ -1,3 +1,4 @@
+import {hasPermission} from '../utils/permissions';
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
@@ -151,7 +152,7 @@ const CollectionCard = ({ item, isAdmin, onEdit, onView }) => {
 const NewCollection = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const isAdmin = user?.userType?.toLowerCase() === "admin";
+  const isAdmin = hasPermission(user,"collections.manage");
   const [collections, setCollections] = useState(featuredCollections);
   const [formData, setFormData] = useState(emptyForm);
   const [selectedImages, setSelectedImages] = useState([]);

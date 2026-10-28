@@ -1,3 +1,7 @@
+import {Alert} from '@mui/material';
+import UserManagement from './components/users/UserManagement';
+import {hasPermission} from './utils/permissions';
+import {permissionForPath} from './utils/accessRoutes';
 import React from "react";
 import {
   BrowserRouter as Router,
@@ -42,15 +46,18 @@ const ProtectedRoute = ({ allowedUserTypes, children }) => {
   }
 
   const userType = user.userType.toLowerCase();
-  if (!allowedUserTypes.includes(userType)) {
+  const permission=permissionForPath(location.pathname);
+  const allowed=permission&&user.permissions?hasPermission(user,permission):allowedUserTypes.includes(userType);
+  if (!allowed) {
     const homePath =
       userType === "admin" || userType === "salesperson"
         ? "/enquiry-management"
         : "/";
-    return <Navigate to={homePath} replace />;
+    return <Navigate to={permission?'/' :homePath} replace />;
   }
 
-  return children;
+  const manage=permission?.replace(/\.view$/,'.manage');
+  return <>{manage&&user.permissions&&Object.prototype.hasOwnProperty.call(user.permissions,manage)&&!hasPermission(user,manage)&&<Alert severity="info" sx={{m:2}}>View-only access. Your administrator has not granted permission to make changes in this module.</Alert>}{children}</>;
 };
 
 const AppContent = () => {
@@ -69,6 +76,7 @@ const AppContent = () => {
         <Route path="/visualizer" element={<TileVisualizer />} />
         <Route path="/contact" element={<ContactUs />} />
         <Route path="/enquiry" element={<EnquiryForm />} />
+        <Route path="/users" element={<ProtectedRoute allowedUserTypes={["admin"]}><UserManagement /></ProtectedRoute>} />
         <Route path="/stores" element={<ProtectedRoute allowedUserTypes={["admin"]}><StoreManagement /></ProtectedRoute>} />
         <Route path="/products" element={<ProtectedRoute allowedUserTypes={["admin"]}><ProductManagement /></ProtectedRoute>} />
         <Route path="/customers" element={<ProtectedRoute allowedUserTypes={["admin", "salesperson"]}><CustomerManagement /></ProtectedRoute>} />
@@ -85,6 +93,8 @@ const AppContent = () => {
         <Route path="/transfers" element={<ProtectedRoute allowedUserTypes={["admin", "salesperson"]}><StockTransferManagement /></ProtectedRoute>} />
         <Route path="/transfers/:id" element={<ProtectedRoute allowedUserTypes={["admin", "salesperson"]}><StockTransferManagement /></ProtectedRoute>} />
         <Route path="/returns" element={<ProtectedRoute allowedUserTypes={["admin", "salesperson"]}><ReturnManagement /></ProtectedRoute>} />
+        <Route path="/returns/:type/new" element={<ProtectedRoute allowedUserTypes={["admin", "salesperson"]}><ReturnManagement /></ProtectedRoute>} />
+        <Route path="/returns/:type/:id/edit" element={<ProtectedRoute allowedUserTypes={["admin", "salesperson"]}><ReturnManagement /></ProtectedRoute>} />
         <Route path="/returns/:type/:id" element={<ProtectedRoute allowedUserTypes={["admin", "salesperson"]}><ReturnManagement /></ProtectedRoute>} />
         <Route path="/financial-reports" element={<ProtectedRoute allowedUserTypes={["admin", "salesperson"]}><FinancialReporting /></ProtectedRoute>} />
         <Route path="/dashboard" element={<ProtectedRoute allowedUserTypes={["admin", "salesperson"]}><Dashboard /></ProtectedRoute>} />

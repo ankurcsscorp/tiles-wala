@@ -1,0 +1,7 @@
+.payment-status-badge.MuiChip-root { height: 28px; border-radius: 999px; font-size: .75rem; font-weight: 650; white-space: nowrap; }
+.payment-status-badge .MuiChip-label { padding-left: 6px; padding-right: 11px; }
+.payment-status-badge .payment-status-dot { width: 7px; height: 7px; margin-left: 10px; margin-right: 0; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+.payment-status-badge--unpaid.MuiChip-root { color: #b91c1c; background: #fee2e2; border-color: #fecaca; }
+.payment-status-badge--partially_paid.MuiChip-root { color: #854d0e; background: #fef3c7; border-color: #fde68a; }
+.payment-status-badge--paid.MuiChip-root { color: #166534; background: #dcfce7; border-color: #bbf7d0; }
+.payment-status-badge--unposted.MuiChip-root, .payment-status-badge--unknown.MuiChip-root { color: #526057; background: #f1f5f2; border-color: #d5ded8; }

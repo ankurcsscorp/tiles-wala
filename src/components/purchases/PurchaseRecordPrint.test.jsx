@@ -4,7 +4,7 @@ const purchase={id:1,status:'posted',invoice_layout:'SIMPLE_LAYOUT',supplier_doc
 test('simple purchase prints five product columns and separate supplier GST disclosures from snapshots',()=>{
  render(<PurchaseRecordPrint purchase={purchase}/>);
  const table=screen.getByRole('table',{name:'Purchase products'});expect(within(table).getAllByRole('columnheader')).toHaveLength(5);expect(within(table).queryByRole('columnheader',{name:'GST rate'})).not.toBeInTheDocument();
- expect(screen.getByRole('table',{name:'Supplier GST disclosures'})).toBeInTheDocument();expect(screen.getByText('6907')).toBeInTheDocument();expect(screen.getByText('Original Supplier')).toBeInTheDocument();expect(screen.queryByText('Renamed Supplier')).not.toBeInTheDocument();expect(screen.getByText('₹136.00')).toBeInTheDocument();expect(screen.getByText('Supplier document: GST Tax Invoice')).toBeInTheDocument();
+ expect(screen.getByRole('table',{name:'Supplier GST disclosures'})).toBeInTheDocument();expect(screen.getByText('6907')).toBeInTheDocument();expect(screen.getByText('Original Supplier')).toBeInTheDocument();expect(screen.queryByText('Renamed Supplier')).not.toBeInTheDocument();expect(screen.getByText('₹136')).toBeInTheDocument();expect(screen.getByText('Supplier document: GST Tax Invoice')).toBeInTheDocument();
 });
 test('no-GST purchase records do not print GST collection amounts',()=>{
  render(<PurchaseRecordPrint purchase={{...purchase,supplier_document_type:'NON_GST_COMMERCIAL',tax_total:'0',total:'200.00',supplier_details_snapshot:{name:'Unregistered Supplier'}}}/>);
@@ -13,4 +13,32 @@ test('no-GST purchase records do not print GST collection amounts',()=>{
 test('detailed purchases retain the detailed item table and historical purchases use their existing print renderer',()=>{
  const view=render(<PurchaseRecordPrint purchase={{...purchase,invoice_layout:'STANDARD_GST_LAYOUT'}}/>);expect(within(screen.getByRole('table',{name:'Purchase products'})).getByRole('columnheader',{name:'HSN'})).toBeInTheDocument();
  view.rerender(<PurchaseRecordPrint purchase={{...purchase,invoice_layout:null}}/>);expect(screen.queryByRole('article')).not.toBeInTheDocument();
+});
+
+test('detailed purchases keep a readable eight-column product table with a complete separate GST breakup',()=>{
+ render(<PurchaseRecordPrint purchase={{...purchase,invoice_layout:'STANDARD_GST_LAYOUT'}}/>);
+ expect(within(screen.getByRole('table',{name:'Purchase products'})).getAllByRole('columnheader')).toHaveLength(8);
+ const taxes=within(screen.getByRole('table',{name:'Supplier GST disclosures'}));
+ for(const name of ['HSN','Taxable','GST rate','CGST','SGST','IGST'])expect(taxes.getByRole('columnheader',{name})).toBeInTheDocument();
+ expect(screen.getByText('Two Hundred Thirty Six Rupees Only')).toBeInTheDocument();
+ expect(screen.getByText('Internal purchase record')).toBeInTheDocument();expect(screen.queryByText('Original for recipient')).not.toBeInTheDocument();
+});
+
+test('purchase totals disclose saved adjustments and returns and print allocated payments',()=>{
+ render(<PurchaseRecordPrint purchase={{...purchase,due_date:'2026-11-10',freight_amount:'50.00',returned_total:'20.00',outstanding_balance:'166.00',total:'286.00',payments:[{id:2,payment_number:'PAY-2',payment_date:'2026-10-28',payment_method:'bank_transfer',reference:'BANK-REF',allocated_amount:'100.00'}]}}/>);
+ expect(screen.getByText('Freight')).toBeInTheDocument();expect(screen.getByText('₹50')).toBeInTheDocument();expect(screen.getByText('Return credit')).toBeInTheDocument();
+ expect(screen.getByText('10 Nov 2026')).toBeInTheDocument();expect(screen.getByRole('table',{name:'Supplier payments'})).toHaveTextContent('BANK-REF');
+ expect(screen.getByText('Prepared by')).toBeInTheDocument();expect(screen.getByText('Checked / approved by')).toBeInTheDocument();
+});
+
+test('missing historical supplier snapshots do not use live supplier details; drafts are clearly marked',()=>{
+ const view=render(<PurchaseRecordPrint purchase={{...purchase,supplier_details_snapshot:null}}/>);
+ expect(screen.getByText('Historical supplier details unavailable')).toBeInTheDocument();expect(screen.queryByText('Renamed Supplier')).not.toBeInTheDocument();
+ view.rerender(<PurchaseRecordPrint purchase={{...purchase,status:'draft',supplier_details_snapshot:null}}/>);
+ expect(screen.getByText('DRAFT PURCHASE RECORD')).toBeInTheDocument();expect(screen.getByText('Renamed Supplier')).toBeInTheDocument();
+});
+
+test('purchase records do not present the store receiving account as supplier payment instructions',()=>{
+ render(<PurchaseRecordPrint purchase={{...purchase,payment_details_snapshot:{accountName:'Store Receiving Account',upiId:'store@bank'}}}/>);
+ expect(screen.queryByText('Store Receiving Account')).not.toBeInTheDocument();expect(screen.queryByText('store@bank')).not.toBeInTheDocument();expect(screen.queryByRole('region',{name:'Payment details'})).not.toBeInTheDocument();
 });

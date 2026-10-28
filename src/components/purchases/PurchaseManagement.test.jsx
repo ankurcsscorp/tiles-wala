@@ -8,6 +8,13 @@ jest.mock('../../context/StoreContext', () => ({ useStores: jest.fn() }));
 jest.mock('../suppliers/SupplierSearch',()=>function SupplierStub({onSelect}) {return <button type="button" onClick={()=>onSelect({id:9,name:'Supplier'})}>Select fixture supplier</button>;});
 beforeEach(()=>{jest.clearAllMocks();useStores.mockReturnValue({stores:[{id:1,name:'Mahua'},{id:2,name:'Other'}],selectedStoreId:'1'});});
 
+test('purchase lists use the same colored payment badges as sales',async()=>{
+ api.get.mockImplementation(url=>Promise.resolve({data:url.endsWith('/purchases')?{items:['unpaid','partially_paid','paid'].map((payment_status,i)=>({id:i+1,invoice_number:`PUR-${i}`,invoice_date:'2026-10-28',status:'posted',payment_status,total:'100.00'}))}:url.endsWith('/reports')?{summary:{},bySupplier:[],byStore:[]}:[]}));
+ render(<MemoryRouter><PurchaseManagement/></MemoryRouter>);
+ for(const label of ['Unpaid','Partially paid','Paid'])expect(await screen.findByLabelText(`Payment status: ${label}`)).toBeInTheDocument();
+ expect(screen.queryByText('partially_paid')).not.toBeInTheDocument();
+});
+
 test('posting a purchase requires confirmation and retains the existing endpoint', async () => {
   const purchase = { id: 7, store_id: 1, status: 'draft', invoice_number: 'PUR-7', store_name: 'Mahua', items: [], receipts: [], payments: [] };
   api.get.mockImplementation((url) => Promise.resolve({ data: url.endsWith('/purchases/7') ? purchase : [] }));
@@ -38,16 +45,16 @@ test('Simple Purchase uses five entry fields and retains supplier GST in a separ
  setup('SIMPLE_LAYOUT');render(page());fireEvent.click(await screen.findByRole('button',{name:'New purchase'}));await screen.findByText(/Tiles Wala Simple Billing · Payment status/);
  await select('Supplier invoice tax document','GST Tax Invoice — supplier charged GST');fireEvent.click(screen.getByRole('button',{name:'Select fixture supplier'}));await addProduct();
  const line=screen.getByRole('combobox',{name:'Product'}).closest('.purchase-line');
- expect(within(line).queryByRole('spinbutton',{name:/^Tax %/})).not.toBeInTheDocument();expect(within(line).queryByRole('spinbutton',{name:/^Discount/})).not.toBeInTheDocument();expect(within(line).getByText('₹200.00')).toBeInTheDocument();
- expect(screen.getByRole('spinbutton',{name:/GST rate for Fixture Tile/})).toHaveValue(18);expect(screen.getByText('₹236.00')).toBeInTheDocument();expect(screen.queryByRole('spinbutton',{name:/^Freight/})).not.toBeInTheDocument();
+ expect(within(line).queryByRole('spinbutton',{name:/^Tax %/})).not.toBeInTheDocument();expect(within(line).queryByRole('spinbutton',{name:/^Discount/})).not.toBeInTheDocument();expect(within(line).getByText('₹200')).toBeInTheDocument();
+ expect(screen.getByRole('spinbutton',{name:/GST rate for Fixture Tile/})).toHaveValue(18);expect(screen.getByText('₹236')).toBeInTheDocument();expect(screen.queryByRole('spinbutton',{name:/^Freight/})).not.toBeInTheDocument();
  await select('GST breakup on supplier invoice','CGST + SGST');fireEvent.change(screen.getByLabelText('GST total on supplier invoice'),{target:{value:'36'}});fireEvent.change(screen.getByLabelText('Supplier invoice number'),{target:{value:'SUP-1'}});
  fireEvent.click(screen.getByRole('button',{name:'Save draft'}));
  await waitFor(()=>expect(api.post).toHaveBeenCalledWith('http://localhost:4000/api/tiles/purchases',expect.objectContaining({invoiceLayout:'SIMPLE_LAYOUT',supplierDocumentType:'GST_TAX_INVOICE',declaredTaxTotal:'36',items:[expect.objectContaining({quantity:'2',unitPrice:'100',taxRate:'18',discountAmount:'0'})]})));
 });
 test('Simple Purchase without supplier GST sums quantity times rate and preserves product tax metadata',async()=>{
  setup('SIMPLE_LAYOUT');render(page());fireEvent.click(await screen.findByRole('button',{name:'New purchase'}));await screen.findByText(/Tiles Wala Simple Billing · Payment status/);
- await select('Supplier invoice tax document','Commercial invoice — unregistered supplier, no GST charged');await addProduct();
- expect(screen.getByText('Grand total').parentElement).toHaveTextContent('₹200.00');expect(screen.queryByRole('spinbutton',{name:/GST rate for Fixture Tile/})).not.toBeInTheDocument();expect(product.tax_rate).toBe('18');
+ await select('Supplier invoice tax document','Non-GST commercial invoice — no GST charged');await addProduct();
+ expect(screen.getByText('Grand total').parentElement).toHaveTextContent('₹200');expect(screen.queryByRole('spinbutton',{name:/GST rate for Fixture Tile/})).not.toBeInTheDocument();expect(product.tax_rate).toBe('18');
 });
 test('GST preference keeps detailed Purchase inputs',async()=>{
  setup('STANDARD_GST_LAYOUT');render(page());fireEvent.click(await screen.findByRole('button',{name:'New purchase'}));await screen.findByText(/GST Billing · Payment status/);
@@ -61,4 +68,16 @@ test('switching receiving store loads its own preference and keeps the new purch
  setup('SIMPLE_LAYOUT');api.get.mockImplementation(url=>Promise.resolve({data:url.endsWith('/stores/1/invoice-settings')?{data:{invoiceLayout:'SIMPLE_LAYOUT'}}:url.endsWith('/stores/2/invoice-settings')?{data:{invoiceLayout:'STANDARD_GST_LAYOUT'}}:url.endsWith('/purchases')?{items:[]}:url.endsWith('/reports')?{summary:{},bySupplier:[],byStore:[]}:[]}));
  render(page());fireEvent.click(await screen.findByRole('button',{name:'New purchase'}));await screen.findByText(/Tiles Wala Simple Billing · Payment status/);
  await select('Receiving store','Other');await screen.findByText(/GST Billing · Payment status/);expect(screen.getByRole('button',{name:'Add product'})).toBeInTheDocument();
+});
+
+test('Non-GST default purchase hides all GST setup and saves zero tax despite product GST metadata',async()=>{
+ setup('SIMPLE_LAYOUT');const previous=api.get.getMockImplementation();
+ api.get.mockImplementation(url=>url.endsWith('/invoice-settings')?Promise.resolve({data:{data:{billingMode:'NON_GST',invoiceType:'NON_GST',invoiceLayout:'SIMPLE_LAYOUT',defaultDocumentType:'NON_GST_COMMERCIAL'}}}):previous(url));
+ render(page());fireEvent.click(await screen.findByRole('button',{name:'New purchase'}));await screen.findByText(/Non-GST — Tiles Wala Simple Billing/);
+ expect(screen.queryByLabelText('Supplier invoice tax document')).not.toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Select fixture supplier'}));await addProduct();
+ expect(screen.getByText('Grand total').parentElement).toHaveTextContent('₹200');expect(screen.queryByText('Supplier tax details')).not.toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Save draft'}));
+ await waitFor(()=>expect(api.post).toHaveBeenCalledWith('http://localhost:4000/api/tiles/purchases',expect.objectContaining({supplierDocumentType:'NON_GST_COMMERCIAL',items:[expect.objectContaining({taxRate:'0'})]})));
+ expect(product.tax_rate).toBe('18');
 });

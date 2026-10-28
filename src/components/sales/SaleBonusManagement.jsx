@@ -1,33 +1,6 @@
+import TextField from '../common/TextField';
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Alert,
-  Autocomplete,
-  Box,
-  Button,
-  Chip,
-  Checkbox,
-  CircularProgress,
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  FormControl,
-  FormControlLabel,
-  InputLabel,
-  MenuItem,
-  Paper,
-  Select,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Tab,
-  Tabs,
-  TextField,
-  Typography,
-} from "@mui/material";
+import { Alert, Autocomplete, Box, Button, Chip, Checkbox, CircularProgress, Dialog, DialogContent, DialogTitle, FormControl, FormControlLabel, InputLabel, MenuItem, Paper, Select, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tab, Tabs, Typography } from '@mui/material';
 import api from "../../api";
 import { useAuth } from "../../context/AuthContext";
 import Auth from "../Auth";
@@ -49,7 +22,7 @@ const INR = (value) =>
   new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
-    minimumFractionDigits: 2,
+    minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(Number(value || 0));
 

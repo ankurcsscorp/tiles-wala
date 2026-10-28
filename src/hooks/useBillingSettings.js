@@ -4,7 +4,8 @@ import api from '../api';
 export const normalizeBillingSettings=data=>{
  const invoiceLayout=data?.invoiceLayout||(data?.invoiceType==='NON_GST'?'SIMPLE_LAYOUT':data?.invoiceType==='GST'?'STANDARD_GST_LAYOUT':null);
  if(!['STANDARD_GST_LAYOUT','SIMPLE_LAYOUT'].includes(invoiceLayout))throw new Error('Invalid billing settings response');
- return {...data,invoiceLayout,billingMode:invoiceLayout==='SIMPLE_LAYOUT'?'SIMPLE':'GST'};
+ const twoModeBilling=['GST','NON_GST'].includes(data?.billingMode);
+ return {...data,invoiceLayout,twoModeBilling,billingMode:twoModeBilling?data.billingMode:invoiceLayout==='SIMPLE_LAYOUT'?'SIMPLE':'GST'};
 };
 // Both editors fetch on opening or store change. Existing drafts use their own snapshots.
 export default function useBillingSettings(storeId,{enabled=true}={}) {

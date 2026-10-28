@@ -1,3 +1,4 @@
+import { formatMoney, formatNumber } from '../../utils/numberFormat';
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Box, Button, Card, CardContent, CircularProgress, FormControl, InputLabel, MenuItem, Select, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from "@mui/material";
 import api from "../../api";
@@ -10,13 +11,13 @@ const reportOptions = [
   ["sales_by_date", "Sales by date"], ["sales_by_store", "Sales by store"], ["sales_by_product", "Sales by product"], ["sales_by_customer", "Sales by customer"], ["sales_by_salesperson", "Sales by salesperson"],
   ["purchases_by_date", "Purchases by date"], ["purchases_by_store", "Purchases by store"], ["purchases_by_supplier", "Purchases by supplier"], ["purchases_by_product", "Purchases by product"], ["stock_by_store", "Stock by store"], ["inventory_valuation", "Inventory valuation"], ["stock_movements", "Stock movement history"], ["low_stock", "Low stock"], ["transfers", "Stock transfers"], ["returns", "Sales and purchase returns"], ["daily_collections", "Daily collections and payments"], ["payment_methods", "Payments by method"],
 ];
-const currency = (value) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(Number(value || 0));
+const currency = formatMoney;
 const quantity = (value) => new Intl.NumberFormat("en-IN", { maximumFractionDigits: 4 }).format(Number(value || 0));
 const isoDate = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 const initialFrom = isoDate(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
 const initialTo = isoDate(new Date());
 const labelize = (key) => key.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
-const formatCell = (value, key) => value == null ? "—" : key.toLowerCase().includes("date") ? String(value).slice(0, 10) : /amount|sales|purchase|discount|valuation|outstanding|receivable|payable|subtotal|profit|total/.test(key) ? currency(value) : typeof value === "number" ? quantity(value) : String(value);
+const formatCell = (value, key) => value == null ? "—" : key.toLowerCase().includes("date") ? String(value).slice(0, 10) : /(?:^|_)(?:amount|sales|purchases?|discounts?|valuation|outstanding|receivables?|payables?|subtotal|profit|total|taxes|indicative_value)(?:_|$)/.test(key) ? currency(value) : typeof value === "number" ? quantity(value) : /(?:^|_)(?:quantity|threshold|factor)(?:_|$)/.test(key) ? formatNumber(value) : String(value);
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -105,7 +106,7 @@ export default function Dashboard() {
       <Card className="dashboard-report"><CardContent><Stack useFlexGap className="report-toolbar" direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ sm: "center" }} spacing={1}><Box><Typography variant="h6" fontWeight={700}>Reports</Typography><Typography variant="caption" color="text.secondary">Aggregated in PostgreSQL; page size 50 rows. CSV exports up to 10,000 filtered rows.</Typography></Box><Stack useFlexGap direction="row" spacing={1}><FormControl size="small" sx={{ minWidth: 210 }}><InputLabel id="dashboard-report-label">Report</InputLabel><Select labelId="dashboard-report-label" label="Report" value={report} onChange={(event) => { setReport(event.target.value); setPage(0); }}>{reportOptions.map(([value, label]) => <MenuItem key={value} value={value}>{label}</MenuItem>)}</Select></FormControl><Button variant="outlined" onClick={exportCsv} disabled={!rows.length || exporting}>{exporting ? "Preparing CSV…" : "Export CSV"}</Button></Stack></Stack>
         {busy && <Box className="report-loading"><CircularProgress size={22} /></Box>}
         <Box className="report-table-wrap"><div className="ui-table-scroll" role="region" aria-label="Scrollable data table" tabIndex={0}><Table size="small" stickyHeader><TableHead><TableRow>{columns.map((column) => <TableCell key={column}>{labelize(column)}</TableCell>)}</TableRow></TableHead><TableBody>{rows.map((row, index) => <TableRow key={`${index}-${Object.values(row)[0]}`}>{columns.map((column) => <TableCell key={column}>{formatCell(row[column], column)}</TableCell>)}</TableRow>)}{!rows.length && !busy && <TableRow><TableCell colSpan={Math.max(columns.length, 1)} align="center">No rows for this report and date range.</TableCell></TableRow>}</TableBody></Table></div></Box>
-        <Stack useFlexGap className="report-pagination" direction="row" justifyContent="space-between" alignItems="center"><Typography variant="body2" color="text.secondary">{reportData?.pagination?.total || 0} rows</Typography><Stack flexWrap="wrap" useFlexGap direction="row" spacing={1}><Button disabled={page === 0 || busy} onClick={() => setPage((current) => current - 1)}>Previous</Button><Button disabled={!reportData || (page + 1) * 50 >= reportData.pagination.total || busy} onClick={() => setPage((current) => current + 1)}>Next</Button></Stack></Stack>
+        <Stack useFlexGap className="report-pagination" direction="row" justifyContent="space-between" alignItems="center"><Typography variant="body2" color="text.secondary">{formatNumber(reportData?.pagination?.total || 0)} rows</Typography><Stack flexWrap="wrap" useFlexGap direction="row" spacing={1}><Button disabled={page === 0 || busy} onClick={() => setPage((current) => current - 1)}>Previous</Button><Button disabled={!reportData || (page + 1) * 50 >= reportData.pagination.total || busy} onClick={() => setPage((current) => current + 1)}>Next</Button></Stack></Stack>
       </CardContent></Card>
     </>}
   </section>;

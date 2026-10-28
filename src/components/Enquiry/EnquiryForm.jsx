@@ -1,16 +1,7 @@
+import TextField from '../common/TextField';
 import React, { useEffect, useState } from "react";
 import api from "../../api";
-import {
-  Box,
-  Paper,
-  Grid,
-  TextField,
-  Button,
-  Typography,
-  Alert,
-  InputAdornment,
-  MenuItem,
-} from "@mui/material";
+import { Box, Paper, Grid, Button, Typography, Alert, InputAdornment, MenuItem } from '@mui/material';
 import SendIcon from "@mui/icons-material/Send";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
 

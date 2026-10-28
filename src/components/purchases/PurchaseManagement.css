@@ -18,19 +18,3 @@
 .purchase-record-print { display:none; }
 @container workspace (max-width:1000px) { .purchase-line.purchase-line-simple>.MuiStack-root { grid-template-columns:repeat(2,minmax(0,1fr)); } .purchase-line.purchase-line-simple>.MuiStack-root>:first-child { grid-column:1/-1; } }
 @media(max-width:650px) { .purchase-line.purchase-line-simple>.MuiStack-root { grid-template-columns:minmax(0,1fr); } }
-@media print {
- @page { size:A4 portrait; margin:12mm; }
- .purchase-screen-details { display:none!important; }
- .purchase-record-print { display:block!important; font:10pt Arial,sans-serif; color:#172b21; }
- .purchase-record-print header { border-bottom:2px solid #234e38; padding-bottom:4mm; }
- .purchase-record-print h1 { margin:0; font-size:20pt; }
- .purchase-record-print p { margin:2mm 0; }
- .purchase-record-print table { width:100%; border-collapse:collapse; margin:4mm 0; font-size:8pt; }
- .purchase-record-print th,.purchase-record-print td { padding:2mm; border:1px solid #c5d0c8; text-align:right; overflow-wrap:anywhere; }
- .purchase-record-print th:first-child,.purchase-record-print td:first-child { text-align:left; }
- .purchase-record-print thead { display:table-header-group; }
- .purchase-record-print tr { break-inside:avoid; }
- .purchase-print-summary { width:85mm; margin-left:auto; break-inside:avoid; }
- .purchase-print-summary p { display:flex; justify-content:space-between; }
- .purchase-print-grand { border-top:1px solid #234e38; padding-top:3mm; font-size:13pt; }
-}

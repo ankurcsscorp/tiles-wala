@@ -1,12 +1,14 @@
+import { formatMoney } from '../../utils/numberFormat';
+import TextField from '../common/TextField';
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Box, Button, Checkbox, Chip, CircularProgress, FormControlLabel, MenuItem, Paper, Stack, Tab, Tabs, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from "@mui/material";
+import { Alert, Box, Button, Checkbox, Chip, CircularProgress, FormControlLabel, MenuItem, Paper, Stack, Tab, Tabs, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
 import api from "../../api";
 import { useStores } from "../../context/StoreContext";
 import "./InventoryManagement.css";
 
 const base = "http://localhost:4000/api/tiles";
 const tabs = ["Stock", "Movements", "Low stock", "Valuation", "Reconciliation", "Adjust stock"];
-const money = (value) => value === null || value === undefined ? "Not configured" : new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(Number(value));
+const money = (value) => value === null || value === undefined ? "Not configured" : formatMoney(value);
 const quantity = (value) => Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 4 });
 
 export default function InventoryManagement() {

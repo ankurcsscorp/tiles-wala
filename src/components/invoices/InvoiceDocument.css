@@ -1,0 +1,109 @@
+/* Shared A4 document styles. Screen transaction controls remain outside this sheet. */
+.invoice-document { display: none; }
+.invoice-document-header { color: #172b24; border: 1px solid #bcc8c1; }
+.invoice-document-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 9px 16px; border-bottom: 1px solid #bcc8c1; font-size: 12px; letter-spacing: .04em; }
+.invoice-document-heading > strong { text-transform: uppercase; }
+.invoice-document-heading > span { border: 1px solid #a8b5ad; border-radius: 3px; padding: 3px 8px; font-size: 10px; letter-spacing: .02em; }
+.invoice-document-brand { position: relative; display: flex; justify-content: center; align-items: center; gap: 16px; padding: 20px; text-align: center; }
+.invoice-document-brand > div { min-width: 0; max-width: 100%; overflow-wrap: anywhere; font-size: 13px; line-height: 1.6; }
+.invoice-document-brand:has(img) > div { width: calc(100% - 160px); }
+.invoice-document-brand > img { position: absolute; left: 20px; width: 64px; height: 64px; object-fit: contain; }
+.invoice-document-brand h1 { margin: 0 0 6px; font-size: 28px; line-height: 1.2; color: #173f32; }
+.invoice-document-contact { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 16px; margin-top: 5px; }
+.invoice-document-gstin { margin-top: 4px; }
+@media screen and (max-width: 600px) {
+  .invoice-document-heading { align-items: flex-start; flex-wrap: wrap; padding: 10px; }
+  .invoice-document-brand { padding: 16px 12px; gap: 12px; }
+  .invoice-document-brand > img { position: static; width: 44px; height: 44px; align-self: flex-start; }
+  .invoice-document-brand:has(img) > div { flex: 1; width: auto; text-align: left; }
+  .invoice-document-brand h1 { font-size: 23px; }
+  .invoice-document-contact { justify-content: inherit; }
+}
+@media print {
+  /* No top margin: start at the page edge and leave no header band for the
+     browser's automatic timestamp/document title. Keep the other print gutters. */
+  @page tiles-invoice { size: A4 portrait; margin: 0 10mm 10mm; }
+  /* The sheet is a direct body child. Remove the entire app from print flow,
+     rather than retaining its ancestor boxes around a named-page document. */
+  html:has(body > .invoice-document), body:has(> .invoice-document) {
+    display: block !important; position: static !important; float: none !important;
+    width: auto !important; max-width: none !important; min-width: 0 !important;
+    height: auto !important; min-height: 0 !important; max-height: none !important;
+    margin: 0 !important; padding: 0 !important; border: 0 !important; box-shadow: none !important;
+    overflow: visible !important; transform: none !important; contain: none !important; container-type: normal !important;
+    background: #fff !important;
+    page: tiles-invoice;
+  }
+  body:has(> .invoice-document) > :not(.invoice-document) { display: none !important; }
+  html:has(body > .invoice-document)::before, html:has(body > .invoice-document)::after,
+  body:has(> .invoice-document)::before, body:has(> .invoice-document)::after {
+    content: none !important; display: none !important;
+  }
+  .invoice-document {
+    display: block !important; position: relative; box-sizing: border-box;
+    page: tiles-invoice;
+    width: 100%; margin: 0; padding: 0; border: .7pt solid #738279;
+    color: #16251d; background: #fff; font: 9pt/1.4 Arial, Helvetica, sans-serif;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .invoice-document *, .invoice-document *::before, .invoice-document *::after { box-sizing: border-box; }
+  .invoice-document h1, .invoice-document h2, .invoice-document p { margin: 0; }
+  .invoice-document h2 { font-size: 8pt; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 1.6mm; color: #43564a; }
+  .invoice-document-header { border: 0; break-inside: avoid; }
+  .invoice-document-heading { padding: 2mm 3mm; font-size: 10pt; border-bottom: .5pt solid #a6b2aa; }
+  .invoice-document-heading > span { font-size: 7pt; padding: .6mm 2mm; }
+  .invoice-document-brand { padding: 3mm; min-height: 27mm; }
+  .invoice-document-brand > div { font-size: 8.5pt; line-height: 1.4; }
+  .invoice-document-brand:has(img) > div { width: calc(100% - 42mm); }
+  .invoice-document-brand > img { left: 3mm; width: 18mm; height: 20mm; }
+  .invoice-document-brand h1 { font-size: 21pt; margin-bottom: 1.5mm; }
+  .invoice-document-contact { gap: 0 4mm; margin-top: 1mm; }
+  .invoice-document-gstin { margin-top: 1mm; }
+  .invoice-document-parties { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); border-top: .5pt solid #a6b2aa; border-bottom: .5pt solid #a6b2aa; }
+  .invoice-document-parties > div { min-width: 0; padding: 2.5mm 3mm; overflow-wrap: anywhere; break-inside: avoid; }
+  .invoice-document-parties > div:nth-child(2) { border-left: .5pt solid #a6b2aa; }
+  .invoice-document-party-name { display: block; font-size: 10pt; margin-bottom: 1mm; }
+  .invoice-document-ship { grid-column: 1 / -1; border-top: .5pt solid #a6b2aa; }
+  .invoice-document-details { margin: 0; }
+  .invoice-document-details > div { display: grid; grid-template-columns: 30mm minmax(0, 1fr); gap: 2mm; padding: .5mm 0; }
+  .invoice-document-details dt { color: #43564a; }
+  .invoice-document-details dd { margin: 0; font-weight: 600; }
+  .invoice-document-items { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 8pt; }
+  .invoice-document-items thead { display: table-header-group; }
+  .invoice-document-items tr { break-inside: avoid; page-break-inside: avoid; }
+  .invoice-document-items th, .invoice-document-items td { padding: 2mm 1.4mm; border: .5pt solid #b8c2bc; vertical-align: top; text-align: right; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+  .invoice-document-items th { background: #edf2ee !important; color: #223b2c; font-size: 7.5pt; line-height: 1.3; }
+  .invoice-document-items .invoice-cell-product { text-align: left; }
+  .invoice-document-items .invoice-cell-center { text-align: center; }
+  .invoice-document-items small { display: block; font-size: 7pt; color: #4b5e52; line-height: 1.4; margin-top: .35mm; }
+  .invoice-document-item-count { padding: 1.5mm 3mm; font-size: 7.5pt; color: #43564a; border-bottom: .5pt solid #b8c2bc; }
+  .invoice-document-summary { display: grid; grid-template-columns: minmax(0, 1fr) minmax(70mm, 43%); break-inside: avoid; }
+  .invoice-document-words { padding: 3mm; overflow-wrap: anywhere; }
+  .invoice-document-words p { font-weight: 600; }
+  .invoice-document-tax { margin: 0 3mm 3mm; max-width: 75mm; }
+  .invoice-document-tax > div, .invoice-document-totals > div { display: flex; justify-content: space-between; align-items: baseline; gap: 4mm; padding: 1mm 0; }
+  .invoice-document-tax strong, .invoice-document-totals strong { flex-shrink: 0; font-variant-numeric: tabular-nums; }
+  .invoice-document-totals { padding: 2mm 3mm; border-left: .5pt solid #b8c2bc; }
+  .invoice-document-totals .invoice-document-grand { border-top: 1pt solid #536f5c; border-bottom: .5pt solid #b8c2bc; margin: 1mm 0; padding: 2mm 0; font-size: 11pt; font-weight: 700; }
+  .invoice-document-section { padding: 3mm; border-top: .5pt solid #b8c2bc; overflow-wrap: anywhere; }
+  .invoice-document-section h2 { break-after: avoid; }
+  .invoice-document-section .invoice-document-items { margin-top: 2mm; }
+  .invoice-document-disclosure { padding: 2mm 3mm; border-bottom: .5pt solid #b8c2bc; font-size: 8pt; overflow-wrap: anywhere; }
+  .invoice-document-multiline { white-space: pre-wrap; orphans: 3; widows: 3; }
+  .invoice-document-payment-details { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); border-top: .5pt solid #b8c2bc; break-inside: avoid; }
+  .invoice-document-payment-details > div { min-width: 0; padding: 3mm; overflow-wrap: anywhere; }
+  .invoice-document-payment-details > div + div { border-left: .5pt solid #b8c2bc; }
+  .invoice-document-payment-details .invoice-document-details > div { grid-template-columns: 24mm minmax(0, 1fr); }
+  .invoice-document-upi { display: block; font-size: 10pt; margin-top: 1mm; overflow-wrap: anywhere; }
+  .invoice-document-payment-hint { margin-top: 3mm !important; font-size: 8pt; color: #43564a; }
+  .invoice-document-closing { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); border-top: .5pt solid #b8c2bc; }
+  .invoice-document-closing > div { padding: 3mm; min-width: 0; overflow-wrap: anywhere; }
+  .invoice-document-receiver { margin-top: 4mm; font-size: 7pt; break-inside: avoid; }
+  .invoice-document-authorization { display: flex; flex-direction: column; justify-content: flex-end; min-height: 27mm; text-align: center; border-left: .5pt solid #b8c2bc; break-inside: avoid; }
+  .invoice-document-signatures { display: grid; grid-template-columns: 1fr 1fr; border-top: .5pt solid #b8c2bc; padding: 3mm; gap: 8mm; break-inside: avoid; }
+  .invoice-document-signatures > div:last-child { text-align: right; }
+  .invoice-document-signatures strong { display: block; overflow-wrap: anywhere; }
+  .invoice-document-signature-space { height: 11mm; }
+  .invoice-document-signatures small { font-size: 7pt; color: #43564a; }
+  .invoice-document-footer { padding: 2.5mm 3mm; border-top: .5pt solid #b8c2bc; text-align: center; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 8pt; }
+}

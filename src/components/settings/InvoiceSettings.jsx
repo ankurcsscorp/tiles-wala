@@ -1,11 +1,12 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {Accordion, AccordionSummary, AccordionDetails, Alert, Box, Button, CircularProgress, FormControl, FormControlLabel, FormLabel, MenuItem, Paper, Radio, RadioGroup, Stack, TextField, Typography} from '@mui/material';
+import {Alert, Box, Button, CircularProgress, FormControl, FormControlLabel, FormLabel, MenuItem, Paper, Radio, RadioGroup, Stack, TextField, Typography} from '@mui/material';
 import {Link} from 'react-router-dom';
 import api from '../../api';
 import {useStores} from '../../context/StoreContext';
-import {documentOptions,documentWarning} from '../../utils/invoicePolicy';
-const endpoint=id=>`http://localhost:4000/api/tiles/stores/${id}/invoice-settings`;
-const defaults=s=>({invoiceLayout:s.invoiceLayout||(s.invoiceType==='NON_GST'?'SIMPLE_LAYOUT':'STANDARD_GST_LAYOUT'),defaultDocumentType:s.defaultDocumentType||(s.invoiceType==='NON_GST'?'NON_GST_COMMERCIAL':'GST_TAX_INVOICE'),registrationStatus:s.registrationStatus||'UNKNOWN',registrationCategory:s.registrationCategory||'UNKNOWN'});
+import {documentWarning} from '../../utils/invoicePolicy';
+const endpoint=id=>'http://localhost:4000/api/tiles/stores/'+id+'/invoice-settings';
+const paymentFields=[['accountName','Account holder name',160],['accountNumber','Account number',34],['bankName','Bank name',160],['branch','Branch',160],['ifscCode','IFSC code',11],['upiId','UPI ID',128]];
+const defaults=s=>({billingMode:s.billingMode==='NON_GST'||s.defaultDocumentType==='NON_GST_COMMERCIAL'?'NON_GST':'GST',registrationStatus:s.registrationStatus||'UNKNOWN',registrationCategory:s.registrationCategory||'UNKNOWN',termsAndConditions:s.termsAndConditions||'',paymentDetails:Object.fromEntries(paymentFields.map(([key])=>[key,s.paymentDetails?.[key]||'']))});
 export default function InvoiceSettings() {
   const {stores,selectedStoreId,selectStore}=useStores();
   const activeStore=useRef(selectedStoreId);activeStore.current=selectedStoreId;
@@ -20,19 +21,23 @@ export default function InvoiceSettings() {
       .finally(()=>{if(active)setLoading(false);});
     return()=>{active=false;};
   },[selectedStoreId]);
-  const initial=settings?defaults(settings):{};
-  const patch=Object.fromEntries(Object.entries(form).filter(([key,value])=>value!==initial[key]));
-  const taxChanged=['defaultDocumentType','registrationStatus','registrationCategory'].some(key=>key in patch);
-  const policy={gstin:settings?.gstin,tax_id:settings?.hasStoredTaxId&&!settings?.gstin?'saved identifier':null,gst_registration_status:form.registrationStatus,gst_registration_category:form.registrationCategory};
-  const warning=settings?documentWarning(policy,form.defaultDocumentType):null;
-  const blocker=taxChanged?warning:null;
+  const gst=form.billingMode==='GST';
+  const warning=settings&&gst?documentWarning({gstin:settings.gstin,tax_id:settings.hasStoredTaxId&&!settings.gstin?'saved identifier':null,gst_registration_status:form.registrationStatus,gst_registration_category:form.registrationCategory},'GST_TAX_INVOICE'):null;
+  const initial=settings?defaults(settings):null;
+  const taxChanged=initial&&(form.billingMode!==initial.billingMode||(gst&&(form.registrationStatus!==initial.registrationStatus||form.registrationCategory!==initial.registrationCategory)));
+  const detailsChanged=initial&&(form.termsAndConditions!==initial.termsAndConditions||JSON.stringify(form.paymentDetails)!==JSON.stringify(initial.paymentDetails));
+  const blockingWarning=warning&&(taxChanged||!detailsChanged)?warning:null;
   const set=(key,value)=>{setForm(f=>({...f,[key]:value}));setError('');setSuccess('');};
-  const save=async(appearanceOnly=false)=>{
-    if(!appearanceOnly&&blocker)return;
-    const payload=appearanceOnly?{invoiceLayout:form.invoiceLayout}:Object.fromEntries(Object.entries(patch).filter(([key])=>key!=='invoiceLayout'));
+  const save=async()=>{
+    if(blockingWarning)return;
+    const initial=defaults(settings),payload={};
+    if(taxChanged||!detailsChanged)payload.billingMode=form.billingMode;
+    if(gst)for(const key of ['registrationStatus','registrationCategory'])if(form[key]!==initial[key])payload[key]=form[key];
+    if(form.termsAndConditions!==initial.termsAndConditions)payload.termsAndConditions=form.termsAndConditions;
+    if(JSON.stringify(form.paymentDetails)!==JSON.stringify(initial.paymentDetails))payload.paymentDetails=form.paymentDetails;
     const savingStore=selectedStoreId;
     setBusy(true);setError('');setSuccess('');
-    try{const r=await api.put(endpoint(savingStore),payload);if(activeStore.current===savingStore){setSettings(r.data.data);setForm(previous=>appearanceOnly?{...previous,invoiceLayout:r.data.data.invoiceLayout}:{...defaults(r.data.data),invoiceLayout:previous.invoiceLayout});setSuccess(appearanceOnly?'Billing mode saved. Tax configuration was not changed.':'Tax configuration saved.');}}
+    try{const r=await api.put(endpoint(savingStore),payload);if(activeStore.current===savingStore){setSettings(r.data.data);setForm(defaults(r.data.data));setSuccess('Billing settings saved. Terms and payment details apply to newly finalized sales invoices.');}}
     catch(e){if(activeStore.current===savingStore)setError(e.response?.data?.message||'Unable to save invoice settings');}finally{setBusy(false);}
   };
   const disabled=busy||!settings?.canEdit;
@@ -43,28 +48,35 @@ export default function InvoiceSettings() {
       {loading&&<CircularProgress aria-label="Loading invoice settings"/>}{error&&<Alert severity="error">{error}</Alert>}{success&&<Alert severity="success">{success}</Alert>}
       {settings&&<>
         {!settings.canEdit&&<Alert severity="info">Only store owners, managers, or administrators can modify these settings.</Alert>}
-        <FormControl disabled={disabled}><FormLabel id="invoice-appearance-label">Preferred Billing Mode</FormLabel><RadioGroup aria-labelledby="invoice-appearance-label" value={form.invoiceLayout} onChange={e=>set('invoiceLayout',e.target.value)}>
-          <FormControlLabel sx={{border:"1px solid",borderColor:form.invoiceLayout==="STANDARD_GST_LAYOUT"?"primary.main":"divider",borderRadius:2,m:0,mt:1,p:1}} value="STANDARD_GST_LAYOUT" control={<Radio/>} label="GST Billing"/><Typography variant="body2" color="text.secondary">Detailed sales and purchase billing with GST fields, HSN, tax rates, and tax calculations.</Typography>
-          <FormControlLabel sx={{border:"1px solid",borderColor:form.invoiceLayout==="SIMPLE_LAYOUT"?"primary.main":"divider",borderRadius:2,m:0,mt:2,p:1}} value="SIMPLE_LAYOUT" control={<Radio/>} label="Tiles Wala Simple Billing"/><Typography variant="body2" color="text.secondary">Fast sales and purchase entry with Product, Quantity, Unit, Rate, and Line Total.</Typography>
+        <FormControl disabled={disabled}><FormLabel id="billing-mode-label">Billing mode</FormLabel><RadioGroup aria-labelledby="billing-mode-label" value={form.billingMode} onChange={e=>set('billingMode',e.target.value)}>
+          <FormControlLabel value="NON_GST" control={<Radio/>} label="Non-GST — Tiles Wala Simple Billing"/>
+          <Typography variant="body2" color="text.secondary">Default billing. Product, Quantity, Unit, Rate, and Line Total. Total = Quantity × Rate. No GST setup or tax charges.</Typography>
+          <FormControlLabel value="GST" control={<Radio/>} label="GST Billing"/>
+          <Typography variant="body2" color="text.secondary">GST invoices with HSN, tax rates, GST calculations, and tax disclosures.</Typography>
         </RadioGroup></FormControl>
-        <Typography variant="body2">Applies to Sales and Purchases.</Typography>
-        <Alert severity="info">{form.invoiceLayout==='SIMPLE_LAYOUT'?'Simple Billing is selected. Applicable GST will still be calculated for taxable sales. Purchases retain tax actually charged by the supplier.':'GST Billing is selected. Detailed GST entry is available for Sales and Purchases.'}</Alert>
-        <Button variant="contained" disabled={disabled} onClick={()=>save(true)}>{busy?'Saving…':'Save Settings'}</Button>
-        <Accordion defaultExpanded={false}><AccordionSummary aria-controls="advanced-tax-settings" id="advanced-tax-title">Advanced: GST Registration and Tax Document Configuration</AccordionSummary><AccordionDetails id="advanced-tax-settings"><Stack spacing={3}>
-        <Typography variant="h6">Business GST Registration</Typography>
-        <TextField select label="Business GST registration declaration" value={form.registrationStatus} disabled={disabled} onChange={e=>set('registrationStatus',e.target.value)} helperText="Record the actual business status. Changing appearance does not change this declaration.">
-          <MenuItem value="UNKNOWN">Not established</MenuItem><MenuItem value="REGISTERED">Registered</MenuItem><MenuItem value="UNREGISTERED">Unregistered</MenuItem>
-        </TextField>
-        <TextField label="Store GSTIN" value={settings.gstin||''} slotProps={{input:{readOnly:true}}} helperText={<>Existing registration identifiers are preserved. Administrators can edit business details in <Link to="/stores">Stores</Link>.</>}/>
-        <TextField select label="GST registration category" value={form.registrationCategory} disabled={disabled} onChange={e=>set('registrationCategory',e.target.value)}>
-          <MenuItem value="UNKNOWN">Not established</MenuItem><MenuItem value="REGULAR">Regular</MenuItem><MenuItem value="COMPOSITION">Composition</MenuItem>
-        </TextField>
-        <FormControl disabled={disabled}><FormLabel id="tax-document-label">Default Tax Document Type</FormLabel><RadioGroup aria-labelledby="tax-document-label" value={form.defaultDocumentType} onChange={e=>set('defaultDocumentType',e.target.value)}>
-          {documentOptions(policy).map(option=><Box key={option.value}><FormControlLabel value={option.value} control={<Radio/>} label={option.label} disabled={Boolean(option.reason)||disabled}/><Typography variant="body2" color="text.secondary">{option.reason||option.description}</Typography></Box>)}
-        </RadioGroup></FormControl>
-        {warning&&<Alert severity={blocker?'error':'info'}>{warning}{!taxChanged&&' Billing mode can be saved independently above. Tax-document eligibility is checked before issuing an invoice.'}</Alert>}
-        <Typography variant="body2" color="text.secondary">Saved defaults apply to new invoices. Existing drafts and finalized invoices keep their appearance and document type.</Typography>
-        <Button variant="outlined" disabled={disabled||Boolean(blocker)} onClick={()=>save(false)}>{busy?'Saving…':'Save Tax Configuration'}</Button></Stack></AccordionDetails></Accordion>
+        <Typography variant="body2">Applies to new Sales and Purchases.</Typography>
+        {gst&&<>
+          <Typography variant="h6">GST setup</Typography>
+          <TextField label="Store GSTIN" value={settings.gstin||''} slotProps={{input:{readOnly:true}}} helperText={<>Update the actual business GSTIN in <Link to="/stores">Stores</Link>.</>}/>
+          <TextField select label="Business GST registration declaration" value={form.registrationStatus} disabled={disabled} onChange={e=>set('registrationStatus',e.target.value)} helperText="Confirm the actual business registration.">
+            <MenuItem value="UNKNOWN">Not established</MenuItem><MenuItem value="REGISTERED">Registered</MenuItem><MenuItem value="UNREGISTERED">Unregistered</MenuItem>
+          </TextField>
+          <TextField select label="GST registration category" value={form.registrationCategory} disabled={disabled} onChange={e=>set('registrationCategory',e.target.value)}>
+            <MenuItem value="UNKNOWN">Not established</MenuItem><MenuItem value="REGULAR">Regular</MenuItem><MenuItem value="COMPOSITION">Composition</MenuItem>
+          </TextField>
+          {warning&&<Alert severity={blockingWarning?'error':'info'}>{warning}</Alert>}
+        </>}
+        <Typography variant="h6">Sales invoice terms and conditions</Typography>
+        <TextField label="Terms and conditions" multiline minRows={4} value={form.termsAndConditions} disabled={disabled} onChange={e=>set('termsAndConditions',e.target.value)} slotProps={{htmlInput:{maxLength:10000}}} helperText="Enter one condition per line. These terms print on sales invoices."/>
+        <Typography variant="h6">Bank details for customer payments</Typography>
+        <Typography variant="body2" color="text.secondary">Optional. To show a bank account, enter the account holder, account number, bank name and IFSC. Branch is optional.</Typography>
+        <Box sx={{display:'grid',gridTemplateColumns:{xs:'1fr',sm:'1fr 1fr'},gap:2}}>
+          {paymentFields.filter(([key])=>key!=='upiId').map(([key,label,maxLength])=><TextField key={key} label={label} value={form.paymentDetails[key]} disabled={disabled} onChange={e=>set('paymentDetails',{...form.paymentDetails,[key]:key==='ifscCode'?e.target.value.toUpperCase():e.target.value})} slotProps={{htmlInput:{maxLength,...(key==='accountNumber'?{inputMode:'numeric'}:{})}}}/>) }
+        </Box>
+        <TextField label="UPI ID" placeholder="shop@bank" value={form.paymentDetails.upiId} disabled={disabled} onChange={e=>set('paymentDetails',{...form.paymentDetails,upiId:e.target.value})} slotProps={{htmlInput:{maxLength:128}}} helperText="Optional. Printed as text so customers can pay using their UPI app."/>
+        <Typography variant="body2" color="text.secondary">Payment details are specific to this store and appear only on sales invoices. Finalized invoices keep their saved terms and payment details.</Typography>
+        <Typography variant="body2" color="text.secondary">Existing drafts and finalized invoices keep their saved format and totals. Saved business identifiers and registration declarations are preserved when switching to Non-GST.</Typography>
+        <Button variant="contained" disabled={disabled||Boolean(blockingWarning)} onClick={save}>{busy?'Saving…':'Save Settings'}</Button>
       </>}
     </Stack></Paper></Box>;
 }

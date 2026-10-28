@@ -1,7 +1,8 @@
+import TextField from '../common/TextField';
 import RecordLink from "../layout/RecordLink";
 import React,{useCallback,useEffect,useState} from "react";
 import {useNavigate,useParams} from "react-router-dom";
-import {Alert,Autocomplete,Box,Button,CircularProgress,Dialog,DialogActions,DialogContent,DialogTitle,MenuItem,Paper,Stack,Table,TableBody,TableCell,TableHead,TableRow,TextField,Typography} from "@mui/material";
+import { Alert, Autocomplete, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
 import api from "../../api";
 import {useStores} from "../../context/StoreContext";
 import "./StockTransferManagement.css";

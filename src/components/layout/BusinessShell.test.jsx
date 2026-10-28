@@ -18,6 +18,14 @@ const renderShell = (role = 'admin', path = '/sales/42', mobile = false) => {
 };
 beforeEach(() => jest.clearAllMocks());
 
+test('custom permissions show granted modules and hide denied ones regardless of base account type',()=>{
+ useMediaQuery.mockImplementation(query=>query==='(min-width:1200px)');
+ useAuth.mockReturnValue({user:{name:'Custom user',userType:'Tile Mistire',permissions:{'sales.view':true,'purchases.view':false}},logout});
+ useStores.mockReturnValue({stores:[],selectedStoreId:'',selectStore});
+ render(<MemoryRouter><BusinessShell>Content</BusinessShell></MemoryRouter>);
+ expect(screen.getByRole('link',{name:'Sales & billing'})).toBeInTheDocument();expect(screen.queryByRole('link',{name:'Purchases'})).not.toBeInTheDocument();expect(screen.queryByRole('link',{name:'Manage Users'})).not.toBeInTheDocument();
+});
+
 test('direct invoice routes select billing and expanding the sidebar preserves the route', () => {
   renderShell();
   expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Sales & billing');

@@ -1,28 +1,7 @@
+import { formatNumber } from '../../utils/numberFormat';
+import TextField from '../common/TextField';
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Alert,
-  Autocomplete,
-  Box,
-  Button,
-  Chip,
-  CircularProgress,
-  FormControl,
-  InputLabel,
-  MenuItem,
-  Paper,
-  Select,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TextField,
-  ToggleButton,
-  ToggleButtonGroup,
-  Typography,
-} from "@mui/material";
+import { Alert, Autocomplete, Box, Button, Chip, CircularProgress, FormControl, InputLabel, MenuItem, Paper, Select, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
 import StarRoundedIcon from "@mui/icons-material/StarRounded";
 import api from "../../api";
 import { useAuth } from "../../context/AuthContext";
@@ -150,7 +129,7 @@ const INR = (value) =>
   new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
-    minimumFractionDigits: 2,
+    minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(Number(value || 0));
 
@@ -667,10 +646,10 @@ const SaleBonus = () => {
                                   {INR(item.selling_price)}
                                 </TableCell>
                                 <TableCell align="right">
-                                  {item.quantity}
+                                  {formatNumber(item.quantity)}
                                 </TableCell>
                                 <TableCell align="right">
-                                  {item.bonus_percentage}%
+                                  {formatNumber(item.bonus_percentage)}%
                                 </TableCell>
                                 <TableCell align="right">
                                   {INR(item.user_bonus)}

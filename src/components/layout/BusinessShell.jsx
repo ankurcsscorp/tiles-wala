@@ -23,7 +23,7 @@ export default function BusinessShell({ children }) {
   const [closedGroups, setClosedGroups] = useState({});
   const [accountAnchor, setAccountAnchor] = useState(null);
   const role = user?.userType?.toLowerCase();
-  const groups = navigationForRole(role);
+  const groups = navigationForRole(role,user?.permissions);
   const activeGroup = groups.find((group) => group.items.some((item) => isActiveItem(item, pathname)))?.label;
   const rail = !overlay && (!desktop || collapsed);
   const width = rail ? 76 : 260;

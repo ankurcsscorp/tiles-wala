@@ -1,22 +1,7 @@
+import { formatNumber } from '../../utils/numberFormat';
+import TextField from '../common/TextField';
 import React, { useCallback, useEffect, useState } from "react";
-import {
-  Alert,
-  Box,
-  Button,
-  CircularProgress,
-  FormControlLabel,
-  Paper,
-  Stack,
-  Switch,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TextField,
-  Typography,
-} from "@mui/material";
+import { Alert, Box, Button, CircularProgress, FormControlLabel, Paper, Stack, Switch, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material';
 import api from "../../api";
 
 const PRODUCT_API_URL = "http://localhost:4000/api/tiles/sales-bonus/products";
@@ -214,12 +199,12 @@ const SalesBonusProductManagement = ({ onCatalogChange }) => {
                   <TableCell>
                     {isEditing
                       ? renderProductField(current, "default_cost_price", "Cost price", "number")
-                      : product.default_cost_price}
+                      : formatNumber(product.default_cost_price)}
                   </TableCell>
                   <TableCell>
                     {isEditing
                       ? renderProductField(current, "default_bonus_percentage", "Bonus %", "number")
-                      : product.default_bonus_percentage}
+                      : formatNumber(product.default_bonus_percentage)}
                   </TableCell>
                   <TableCell>
                     {isEditing

@@ -1,3 +1,5 @@
+import {hasPermission} from '../../utils/permissions';
+import {permissionForPath} from '../../utils/accessRoutes';
 import Dashboard from '@mui/icons-material/DashboardOutlined';
 import Receipt from '@mui/icons-material/ReceiptLongOutlined';
 import Purchase from '@mui/icons-material/ShoppingCartOutlined';
@@ -23,7 +25,9 @@ export const navigation = [
     item('Sales & billing', '/billing', Receipt, staff, ['/sales/']),
     item('Purchases', '/purchases', Purchase, staff),
     item('Payments', '/payments', Payment, staff),
-    item('Sales & purchase returns', '/returns', Returns, staff),
+    item('Sales Return', '/returns/sales/new', Returns, staff, ['/returns/sales/']),
+    item('Purchase Return', '/returns/purchase/new', Returns, staff, ['/returns/purchase/']),
+    {...item('Sales & purchase returns', '/returns', Returns, staff),exact:true},
   ] },
   { label: 'Inventory', items: [
     item('Inventory & adjustments', '/inventory', Inventory, staff),
@@ -36,6 +40,7 @@ export const navigation = [
     item('Accounting & outstanding', '/financial-reports', Accounts, staff),
   ] },
   { label: 'Business management', items: [
+    item('Manage Users', '/users', People, ['admin']),
     item('Stores', '/stores', Store, ['admin']),
     item('Sales Bonus', '/sales-bonus', Bonus, ['admin', 'salesperson', 'tile mistire']),
     item('Commission management', '/sales-bonus-management', Bonus, ['admin']),
@@ -49,10 +54,10 @@ export const navigation = [
   ] },
 ];
 export const isActiveItem = (item, pathname) => pathname === item.path ||
-  (item.path !== '/' && pathname.startsWith(`${item.path}/`)) ||
+  (!item.exact && item.path !== '/' && pathname.startsWith(`${item.path}/`)) ||
   item.aliases.some((alias) => pathname.startsWith(alias));
-export const navigationForRole = (role) => navigation.map((group) => ({ ...group,
-  items: group.items.filter((entry) => !entry.roles || entry.roles.includes(role)),
+export const navigationForRole = (role,permissions) => navigation.map((group) => ({ ...group,
+  items: group.items.filter((entry) => {const key=permissionForPath(entry.path);return key&&permissions?hasPermission({userType:role,permissions},key):!entry.roles||entry.roles.includes(role);}),
 })).filter((group) => group.items.length);
 export const pageTitle = (pathname) => navigation.flatMap((group) => group.items)
   .find((entry) => isActiveItem(entry, pathname))?.label || ({ '/contact': 'Contact Us', '/auth': 'Account' }[pathname]) || 'Tiles Wala';

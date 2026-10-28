@@ -21,3 +21,8 @@ test('reloads preferences for a new entry and reports failures without permittin
  api.get.mockRejectedValue(new Error('offline'));rerender({enabled:true});await waitFor(()=>expect(result.current.error).toMatch(/Unable to load/));expect(result.current.ready).toBe(false);
  api.get.mockResolvedValue({data:{data:{invoiceLayout:'STANDARD_GST_LAYOUT'}}});act(()=>result.current.reload());await waitFor(()=>expect(result.current.settings.billingMode).toBe('GST'));
 });
+
+test('preserves explicit two-mode settings instead of deriving tax treatment from appearance',async()=>{
+ api.get.mockResolvedValue({data:{data:{billingMode:'NON_GST',invoiceLayout:'SIMPLE_LAYOUT'}}});const {result}=renderHook(()=>useBillingSettings('1'));
+ await waitFor(()=>expect(result.current.ready).toBe(true));expect(result.current.settings.billingMode).toBe('NON_GST');expect(result.current.settings.twoModeBilling).toBe(true);
+});

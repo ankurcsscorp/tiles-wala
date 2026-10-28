@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import api from "../api";
 
 const AUTH_API_URL = "http://localhost:4000/api/tiles/auth";
@@ -56,6 +56,16 @@ const normalizeAuthResponse = (response) => {
 
 export const AuthProvider = ({ children }) => {
   const [authData, setAuthData] = useState(getStoredAuth);
+
+  useEffect(()=>{
+    if(!authData.token)return;
+    let alive=true;
+    const refresh=async()=>{try{const r=await api.get('http://localhost:4000/api/tiles/users/me');
+      if(alive&&r.data?.user?.userType&&r.data.user.permissions)setAuthData(current=>{if(current.token!==authData.token)return current;const next={...current,user:r.data.user};localStorage.setItem(STORAGE_KEY,JSON.stringify(next));return next;});
+    }catch(e){if(alive&&e.response?.status===401){localStorage.removeItem(STORAGE_KEY);setAuthData({user:null,token:null});}}};
+    refresh();const timer=setInterval(refresh,30000);window.addEventListener('focus',refresh);
+    return()=>{alive=false;clearInterval(timer);window.removeEventListener('focus',refresh);};
+  },[authData.token]);
 
   const saveAuth = (response) => {
     const nextAuthData = normalizeAuthResponse(response);

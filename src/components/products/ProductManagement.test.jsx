@@ -17,7 +17,7 @@ test("renders shared product results and the stock readout",async()=>{
   expect(await screen.findByText("Ivory Tile")).toBeInTheDocument();
   expect(screen.getByRole("combobox",{name:"Category"})).toHaveTextContent("All categories");
   expect(screen.getByText("TILE-8")).toBeInTheDocument();
-  expect(screen.getByText("22.5000")).toBeInTheDocument();
+  expect(screen.getByText("22.5")).toBeInTheDocument();
   expect(screen.getByRole("button",{name:"Add product"})).toBeInTheDocument();
 });
 

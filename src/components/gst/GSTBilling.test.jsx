@@ -6,7 +6,7 @@ import SalesInvoicePrint from '../sales/SalesInvoicePrint';
 import api from '../../api';
 jest.mock('../../api',()=>({get:jest.fn(),post:jest.fn()}));
 jest.mock('../../context/StoreContext',()=>({useStores:()=>({stores:[{id:1,name:'Mahua'}],selectedStoreId:'1',selectStore:jest.fn()})}));
-jest.mock('../../context/AuthContext',()=>({useAuth:()=>({user:{name:'Owner'}})}));
+jest.mock('../../context/AuthContext',()=>({useAuth:()=>({user:{name:'Owner',userType:'Admin'}})}));
 const gstin='27AAPFU0939F1ZV';
 const data={gstin,legalName:'Fixture Legal',tradeName:'Fixture Tiles',registrationStatus:'Active',address:{addressLine1:'12 Test Road',addressLine2:'Market',city:'Pune',state:'Maharashtra',pincode:'411001'},source:'finagg',fetchedAt:'2026-10-22T12:00:00.000Z'};
 beforeEach(()=>{
