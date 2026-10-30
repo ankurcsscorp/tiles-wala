@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import api from "../../api";
 import { useAuth } from "../../context/AuthContext";
 import SaleBonus from "./SaleBonus";
@@ -13,6 +14,8 @@ jest.mock("../../context/AuthContext", () => ({
 }));
 
 describe("SaleBonus language selection", () => {
+  const renderSaleBonus = () => render(<MemoryRouter><SaleBonus /></MemoryRouter>);
+
   beforeEach(() => {
     useAuth.mockReturnValue({
       user: {
@@ -46,7 +49,7 @@ describe("SaleBonus language selection", () => {
   });
 
   it("defaults to Hindi for non-admin users and allows switching to English", async () => {
-    render(<SaleBonus />);
+    renderSaleBonus();
 
     expect(screen.getByRole("heading", { name: "बिक्री बोनस" })).toBeInTheDocument();
     expect(
@@ -72,9 +75,34 @@ describe("SaleBonus language selection", () => {
       },
     });
 
-    render(<SaleBonus />);
+    renderSaleBonus();
 
     expect(await screen.findByText("सेल्सपर्सन में सबसे आगे")).toBeInTheDocument();
+  });
+
+  it("shows an approved bonus with zero payable as awaiting invoice collection, not paid", async () => {
+    api.get.mockImplementation((url) => Promise.resolve(url.endsWith("/records")
+      ? { data: { records: [{
+          id: 13,
+          created_at: "2026-10-29T13:00:00.000Z",
+          invoice_number: "TILESWALA1-2026-00007",
+          status: "approved",
+          final_user_bonus: "85.80",
+          approved_bonus: "85.80",
+          payable_amount: "0.00",
+          total_amount_paid: "0.00",
+          items: [{ id: 1, product_name: "Costa Blue", selling_price: "850", quantity: "3", bonus_percentage: "10", user_bonus: "85.8" }],
+          payments: [],
+        }] } }
+      : url.endsWith("/top-seller") ? { data: { topSellers: [] } } : { data: [] }));
+
+    renderSaleBonus();
+    fireEvent.click(screen.getByRole("button", { name: "English" }));
+
+    expect((await screen.findAllByText("Awaiting collection")).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Approved bonus not yet payable/).length).toBeGreaterThan(0);
+    expect(screen.queryByText("All bonus amount paid")).not.toBeInTheDocument();
+    expect(screen.getAllByText("₹0").length).toBeGreaterThan(0);
   });
 
   it("shows the top three sellers from the group selected by an admin", async () => {
@@ -113,7 +141,7 @@ describe("SaleBonus language selection", () => {
       return Promise.resolve({ data: { records: [] } });
     });
 
-    render(<SaleBonus />);
+    renderSaleBonus();
     fireEvent.change(screen.getByRole("combobox"), {
       target: { value: "Tile Mason" },
     });
@@ -127,5 +155,27 @@ describe("SaleBonus language selection", () => {
       expect.stringContaining("/sales-bonus/top-seller"),
       { params: { userType: "Tile Mistire" } }
     );
+  });
+
+  it("keeps the admin payment action available for an approved payable bonus", async () => {
+    useAuth.mockReturnValue({ user: { id: 1, name: "Admin", userType: "Admin" } });
+    api.get.mockImplementation((url) => {
+      if (url.endsWith("/users/search")) return Promise.resolve({ data: [{ id: 28, name: "Tile Mason", mobile: "9876543213", userType: "Tile Mistire" }] });
+      if (url.endsWith("/top-seller")) return Promise.resolve({ data: { topSellers: [] } });
+      if (url.endsWith("/records")) return Promise.resolve({ data: { records: [{
+        id: 19, created_at: "2026-10-29T13:00:00.000Z", invoice_number: "INV-19", status: "payable",
+        final_user_bonus: "85.80", approved_bonus: "85.80", payable_amount: "85.80", total_amount_paid: "0.00",
+        items: [], payments: [],
+      }] } });
+      return Promise.resolve({ data: [] });
+    });
+
+    renderSaleBonus();
+    const search = screen.getByRole("combobox", { name: "Search user by name or mobile" });
+    fireEvent.change(search, { target: { value: "Tile Mason" } });
+    fireEvent.click(await screen.findByRole("option", { name: /Tile Mason/ }));
+
+    expect(await screen.findByText("Record a payment for this sale")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pay remaining ₹85.8" })).toBeInTheDocument();
   });
 });

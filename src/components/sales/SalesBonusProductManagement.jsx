@@ -5,16 +5,9 @@ import { Alert, Box, Button, CircularProgress, FormControlLabel, Paper, Stack, S
 import api from "../../api";
 
 const PRODUCT_API_URL = "http://localhost:4000/api/tiles/sales-bonus/products";
-const EMPTY_PRODUCT = {
-  product_name: "",
-  default_cost_price: "",
-  default_bonus_percentage: "10",
-  unit_label: "Box",
-};
 
-const SalesBonusProductManagement = ({ onCatalogChange }) => {
+const SalesBonusProductManagement = () => {
   const [products, setProducts] = useState([]);
-  const [newProduct, setNewProduct] = useState({ ...EMPTY_PRODUCT });
   const [editingProduct, setEditingProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -28,67 +21,55 @@ const SalesBonusProductManagement = ({ onCatalogChange }) => {
       const response = await api.get(`${PRODUCT_API_URL}/manage`);
       setProducts(Array.isArray(response.data) ? response.data : []);
     } catch (requestError) {
-      setError(requestError.response?.data?.message || "Unable to load products.");
+      setError(requestError.response?.data?.message || "Unable to load invoice products.");
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    loadProducts();
-  }, [loadProducts]);
+  useEffect(() => { loadProducts(); }, [loadProducts]);
 
-  const handleCreate = async (event) => {
-    event.preventDefault();
-    setSaving(true);
-    setError("");
-    setSuccess("");
-    try {
-      await api.post(PRODUCT_API_URL, newProduct);
-      setNewProduct({ ...EMPTY_PRODUCT });
-      await loadProducts();
-      onCatalogChange();
-      setSuccess("Product added.");
-    } catch (requestError) {
-      setError(requestError.response?.data?.message || "Unable to add product.");
-    } finally {
-      setSaving(false);
-    }
-  };
+  const startEdit = product => setEditingProduct({
+    ...product,
+    default_cost_price: product.default_cost_price ?? product.default_purchase_price ?? "",
+    default_bonus_percentage: product.default_bonus_percentage ?? "",
+    unit_label: product.unit_label || "",
+    is_active: product.has_bonus_rule ? Boolean(product.is_active) : true,
+  });
+
+  const updateEditingProduct = (field, value) => setEditingProduct(current => ({ ...current, [field]: value }));
 
   const handleSave = async () => {
+    if (!editingProduct) return;
     setSaving(true);
     setError("");
     setSuccess("");
     try {
-      await api.put(`${PRODUCT_API_URL}/${editingProduct.id}`, editingProduct);
+      await api.put(`${PRODUCT_API_URL}/catalog/${editingProduct.product_id}`, {
+        default_cost_price: editingProduct.default_cost_price,
+        default_bonus_percentage: editingProduct.default_bonus_percentage,
+        unit_label: editingProduct.unit_label,
+        is_active: editingProduct.is_active,
+      });
       setEditingProduct(null);
       await loadProducts();
-      onCatalogChange();
-      setSuccess("Product updated.");
+      setSuccess(`Bonus rule saved for ${editingProduct.product_name}.`);
     } catch (requestError) {
-      setError(requestError.response?.data?.message || "Unable to update product.");
+      setError(requestError.response?.data?.message || "Unable to save product bonus rule.");
     } finally {
       setSaving(false);
     }
   };
 
-  const updateNewProduct = (field, value) => {
-    setNewProduct((current) => ({ ...current, [field]: value }));
-  };
-
-  const updateEditingProduct = (field, value) => {
-    setEditingProduct((current) => ({ ...current, [field]: value }));
-  };
-
-  const renderProductField = (product, field, label, type = "text") => (
+  const field = (key, label, type = "text") => (
     <TextField
       label={label}
       size="small"
       type={type}
-      value={product[field] ?? ""}
-      onChange={(event) => updateEditingProduct(field, event.target.value)}
-      slotProps={type === "number" ? { htmlInput: { min: 0, step: "0.01" } } : undefined}
+      value={editingProduct?.[key] ?? ""}
+      onChange={event => updateEditingProduct(key, event.target.value)}
+      slotProps={type === "number" ? { htmlInput: { min: 0, max: key === "default_bonus_percentage" ? 100 : undefined, step: "0.01" } } : undefined}
+      required
       fullWidth
     />
   );
@@ -96,161 +77,37 @@ const SalesBonusProductManagement = ({ onCatalogChange }) => {
   return (
     <Stack useFlexGap spacing={2.5}>
       <Box>
-        <Typography variant="h6" fontWeight={700}>
-          Update Product
-        </Typography>
+        <Typography variant="h6" fontWeight={700}>Product bonus rules</Typography>
         <Typography variant="body2" color="text.secondary">
-          Add products or update their catalog details and availability.
+          Products are loaded from the same active catalog used by sales invoices. Edit a product to set its cost, bonus percentage, and invoice unit.
         </Typography>
       </Box>
 
       {error && <Alert severity="error">{error}</Alert>}
       {success && <Alert severity="success">{success}</Alert>}
 
-      <Paper component="form" variant="outlined" onSubmit={handleCreate} sx={{ p: 2 }}>
-        <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 2 }}>
-          Add Product
-        </Typography>
-        <Box
-          sx={{
-            display: "grid",
-            gridTemplateColumns: {
-              xs: "1fr",
-              sm: "repeat(2, minmax(0, 1fr))",
-              lg: "2fr 1fr 1fr 1fr auto",
-            },
-            gap: 1.5,
-            alignItems: "center",
-          }}
-        >
-          <TextField
-            label="Product name"
-            size="small"
-            value={newProduct.product_name}
-            onChange={(event) => updateNewProduct("product_name", event.target.value)}
-            required
-          />
-          <TextField
-            label="Cost price"
-            size="small"
-            type="number"
-            value={newProduct.default_cost_price}
-            onChange={(event) => updateNewProduct("default_cost_price", event.target.value)}
-            slotProps={{ htmlInput: { min: 0, step: "0.01" } }}
-            required
-          />
-          <TextField
-            label="Bonus %"
-            size="small"
-            type="number"
-            value={newProduct.default_bonus_percentage}
-            onChange={(event) => updateNewProduct("default_bonus_percentage", event.target.value)}
-            slotProps={{ htmlInput: { min: 0, max: 100, step: "0.01" } }}
-            required
-          />
-          <TextField
-            label="Unit"
-            size="small"
-            value={newProduct.unit_label}
-            onChange={(event) => updateNewProduct("unit_label", event.target.value)}
-            required
-          />
-          <Button type="submit" variant="contained" disabled={saving}>
-            Add Product
-          </Button>
-        </Box>
-      </Paper>
-
       <TableContainer component={Paper} variant="outlined" sx={{ overflowX: "auto" }}>
-        <Table sx={{ minWidth: 850 }}>
-          <TableHead>
-            <TableRow>
-              <TableCell>Product name</TableCell>
-              <TableCell>Cost price</TableCell>
-              <TableCell>Bonus %</TableCell>
-              <TableCell>Unit</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell align="right">Actions</TableCell>
-            </TableRow>
-          </TableHead>
+        <Table sx={{ minWidth: 900 }}>
+          <TableHead><TableRow>{["SKU", "Invoice product", "Cost price", "Bonus %", "Unit", "Rule status", ""].map(label => <TableCell key={label}>{label}</TableCell>)}</TableRow></TableHead>
           <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={6} align="center">
-                  <CircularProgress size={22} />
-                </TableCell>
-              </TableRow>
-            ) : products.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} align="center">
-                  No products found.
-                </TableCell>
-              </TableRow>
-            ) : products.map((product) => {
-              const isEditing = editingProduct?.id === product.id;
-              const current = isEditing ? editingProduct : product;
-              return (
-                <TableRow key={product.id}>
-                  <TableCell>
-                    {isEditing
-                      ? renderProductField(current, "product_name", "Product name")
-                      : product.product_name}
-                  </TableCell>
-                  <TableCell>
-                    {isEditing
-                      ? renderProductField(current, "default_cost_price", "Cost price", "number")
-                      : formatNumber(product.default_cost_price)}
-                  </TableCell>
-                  <TableCell>
-                    {isEditing
-                      ? renderProductField(current, "default_bonus_percentage", "Bonus %", "number")
-                      : formatNumber(product.default_bonus_percentage)}
-                  </TableCell>
-                  <TableCell>
-                    {isEditing
-                      ? renderProductField(current, "unit_label", "Unit")
-                      : product.unit_label}
-                  </TableCell>
-                  <TableCell>
-                    {isEditing ? (
-                      <FormControlLabel
-                        control={
-                          <Switch
-                            checked={Boolean(editingProduct.is_active)}
-                            onChange={(event) => updateEditingProduct("is_active", event.target.checked)}
-                            size="small"
-                          />
-                        }
-                        label={editingProduct.is_active ? "Active" : "Inactive"}
-                      />
-                    ) : product.is_active ? "Active" : "Inactive"}
-                  </TableCell>
-                  <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
-                    {isEditing ? (
-                      <>
-                        <Button size="small" onClick={handleSave} disabled={saving}>
-                          Save
-                        </Button>
-                        <Button size="small" onClick={() => setEditingProduct(null)} disabled={saving}>
-                          Cancel
-                        </Button>
-                      </>
-                    ) : (
-                      <Button
-                        size="small"
-                        onClick={() => setEditingProduct({
-                          ...product,
-                          default_cost_price: String(product.default_cost_price),
-                          default_bonus_percentage: String(product.default_bonus_percentage),
-                        })}
-                      >
-                        Edit
-                      </Button>
-                    )}
-                  </TableCell>
-                </TableRow>
-              );
-            })}
+            {loading ? <TableRow><TableCell colSpan={7} align="center"><CircularProgress size={22} /></TableCell></TableRow>
+              : products.length === 0 ? <TableRow><TableCell colSpan={7} align="center">No active invoice products found.</TableCell></TableRow>
+                : products.map(product => {
+                  const isEditing = editingProduct?.product_id === product.product_id;
+                  return <TableRow key={product.product_id}>
+                    <TableCell>{product.sku}</TableCell>
+                    <TableCell>{product.product_name}</TableCell>
+                    <TableCell>{isEditing ? field("default_cost_price", "Cost price", "number") : product.has_bonus_rule ? formatNumber(product.default_cost_price) : "—"}</TableCell>
+                    <TableCell>{isEditing ? field("default_bonus_percentage", "Bonus %", "number") : product.has_bonus_rule ? `${formatNumber(product.default_bonus_percentage)}%` : "Not set"}</TableCell>
+                    <TableCell>{isEditing ? field("unit_label", "Invoice unit") : product.unit_label || "—"}</TableCell>
+                    <TableCell>{isEditing
+                      ? <FormControlLabel control={<Switch checked={Boolean(editingProduct.is_active)} onChange={event => updateEditingProduct("is_active", event.target.checked)} size="small" />} label={editingProduct.is_active ? "Active" : "Inactive"} />
+                      : product.has_bonus_rule ? product.is_active ? "Active" : "Inactive" : "Needs setup"}</TableCell>
+                    <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>{isEditing
+                      ? <Stack direction="row" spacing={0.5}><Button size="small" onClick={handleSave} disabled={saving}>{saving ? "Saving…" : "Save"}</Button><Button size="small" onClick={() => setEditingProduct(null)} disabled={saving}>Cancel</Button></Stack>
+                      : <Button size="small" onClick={() => startEdit(product)}>{product.has_bonus_rule ? "Edit rule" : "Add rule"}</Button>}</TableCell>
+                  </TableRow>;
+                })}
           </TableBody>
         </Table>
       </TableContainer>

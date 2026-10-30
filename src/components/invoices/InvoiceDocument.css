@@ -22,7 +22,7 @@
 @media print {
   /* No top margin: start at the page edge and leave no header band for the
      browser's automatic timestamp/document title. Keep the other print gutters. */
-  @page tiles-invoice { size: A4 portrait; margin: 0 10mm 10mm; }
+  @page { size: 210mm 297mm; margin: 10mm; }
   /* The sheet is a direct body child. Remove the entire app from print flow,
      rather than retaining its ancestor boxes around a named-page document. */
   html:has(body > .invoice-document), body:has(> .invoice-document) {
@@ -32,7 +32,6 @@
     margin: 0 !important; padding: 0 !important; border: 0 !important; box-shadow: none !important;
     overflow: visible !important; transform: none !important; contain: none !important; container-type: normal !important;
     background: #fff !important;
-    page: tiles-invoice;
   }
   body:has(> .invoice-document) > :not(.invoice-document) { display: none !important; }
   html:has(body > .invoice-document)::before, html:has(body > .invoice-document)::after,
@@ -41,8 +40,7 @@
   }
   .invoice-document {
     display: block !important; position: relative; box-sizing: border-box;
-    page: tiles-invoice;
-    width: 100%; margin: 0; padding: 0; border: .7pt solid #738279;
+    width: 190mm; max-width: 100%; margin: 0 auto; padding: 0; border: .7pt solid #738279;
     color: #16251d; background: #fff; font: 9pt/1.4 Arial, Helvetica, sans-serif;
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
@@ -60,10 +58,10 @@
   .invoice-document-contact { gap: 0 4mm; margin-top: 1mm; }
   .invoice-document-gstin { margin-top: 1mm; }
   .invoice-document-parties { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); border-top: .5pt solid #a6b2aa; border-bottom: .5pt solid #a6b2aa; }
+  .invoice-document-parties.has-shipping { grid-template-columns: minmax(0, 1fr) minmax(0, .7fr) minmax(0, 1.3fr); }
   .invoice-document-parties > div { min-width: 0; padding: 2.5mm 3mm; overflow-wrap: anywhere; break-inside: avoid; }
-  .invoice-document-parties > div:nth-child(2) { border-left: .5pt solid #a6b2aa; }
+  .invoice-document-parties > div + div { border-left: .5pt solid #a6b2aa; }
   .invoice-document-party-name { display: block; font-size: 10pt; margin-bottom: 1mm; }
-  .invoice-document-ship { grid-column: 1 / -1; border-top: .5pt solid #a6b2aa; }
   .invoice-document-details { margin: 0; }
   .invoice-document-details > div { display: grid; grid-template-columns: 30mm minmax(0, 1fr); gap: 2mm; padding: .5mm 0; }
   .invoice-document-details dt { color: #43564a; }
@@ -76,6 +74,9 @@
   .invoice-document-items .invoice-cell-product { text-align: left; }
   .invoice-document-items .invoice-cell-center { text-align: center; }
   .invoice-document-items small { display: block; font-size: 7pt; color: #4b5e52; line-height: 1.4; margin-top: .35mm; }
+  .invoice-document-product-meta { display: block; }
+  .invoice-document-product-meta small { display: inline; margin: 0; }
+  .invoice-document-product-meta small + small::before { content: ' · '; white-space: pre; }
   .invoice-document-item-count { padding: 1.5mm 3mm; font-size: 7.5pt; color: #43564a; border-bottom: .5pt solid #b8c2bc; }
   .invoice-document-summary { display: grid; grid-template-columns: minmax(0, 1fr) minmax(70mm, 43%); break-inside: avoid; }
   .invoice-document-words { padding: 3mm; overflow-wrap: anywhere; }

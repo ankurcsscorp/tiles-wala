@@ -5,6 +5,7 @@ import { Alert, Autocomplete, Box, Button, Chip, CircularProgress, FormControl, 
 import StarRoundedIcon from "@mui/icons-material/StarRounded";
 import api from "../../api";
 import { useAuth } from "../../context/AuthContext";
+import {useNavigate} from 'react-router-dom';
 
 const API_URL = "http://localhost:4000/api/tiles";
 
@@ -29,12 +30,22 @@ const translations = {
     totalBonus: "Total bonus",
     totalPaid: "Total paid",
     totalDueBonus: "Total due bonus",
+    recoveryBalance: "Advance recovery balance",
+    recoveryOffset: "Recovered from this bonus",
+    recoveryDetails: "This balance came from bonus already paid on a sale that was later returned. It will be recovered automatically from future bonuses before they are paid.",
+    recovered: "Applied to recovery balance",
+    awaitingCollection: "Awaiting invoice collection",
+    awaitingCollectionDetails: "Approved bonus not yet payable because customer invoice payments have not been collected yet.",
+    amountAwaitingCollection: "Awaiting collection",
+    adminPayoutOverride: "Admin payment can be recorded now and will override the invoice collection release limit.",
+    adminDueWarning: "This is the unpaid approved bonus balance. Admin can record a partial or full payout here.",
     outstandingWarning:
       "Outstanding bonus from previous sales is included in the total due bonus above.",
     allPaid: "All bonus amount paid",
     saleOn: "Sale on",
     sale: "Sale",
     paymentDue: "Payment due",
+    awaitingPayment: "Awaiting collection",
     paid: "Paid",
     item: "Item",
     sellingPrice: "Selling price",
@@ -67,6 +78,12 @@ const translations = {
     loadingTopSellers: "Loading the top sellers",
     noTopSellers: "No sales have been recorded for this group yet.",
     topSellersLoadFailed: "Unable to load the top sellers.",
+    invoice: "Invoice",
+    pendingApproval: "Bonus approval pending",
+    onHold: "On hold",
+    history: "Payment history",
+    noHistory: "No payment history yet.",
+    untrackedPaid: "Previously recorded as paid, but transaction details are unavailable:",
   },
   hi: {
     title: "बिक्री बोनस",
@@ -85,11 +102,21 @@ const translations = {
     totalBonus: "कुल बोनस",
     totalPaid: "कुल भुगतान",
     totalDueBonus: "कुल बाकी बोनस",
+    recoveryBalance: "अग्रिम रिकवरी बाकी",
+    recoveryOffset: "इस बोनस से रिकवरी",
+    recoveryDetails: "यह बकाया उस बोनस से बना है जिसका भुगतान हो चुका था, फिर बिक्री का सामान लौटाया गया। आगे के बोनस का भुगतान करने से पहले यह रकम अपने आप समायोजित होगी।",
+    recovered: "रिकवरी में समायोजित",
+    awaitingCollection: "इनवॉइस भुगतान का इंतज़ार",
+    awaitingCollectionDetails: "ग्राहक से इनवॉइस का भुगतान मिलने पर ही स्वीकृत बोनस देय होगा।",
+    amountAwaitingCollection: "भुगतान मिलने तक बाकी",
+    adminPayoutOverride: "एडमिन अभी भुगतान दर्ज कर सकता है; इससे इनवॉइस कलेक्शन की सीमा हट जाएगी।",
+    adminDueWarning: "यह स्वीकृत बोनस की बाकी रकम है। एडमिन यहाँ पूरा या आंशिक भुगतान दर्ज कर सकता है।",
     outstandingWarning: "पिछली बिक्री का बाकी बोनस ऊपर दिखाई गई कुल बाकी रकम में शामिल है।",
     allPaid: "पूरा बोनस चुका दिया गया है",
     saleOn: "बिक्री की तारीख",
     sale: "बिक्री",
     paymentDue: "भुगतान बाकी",
+    awaitingPayment: "इनवॉइस भुगतान का इंतज़ार",
     paid: "भुगतान हो गया",
     item: "सामान",
     sellingPrice: "बिक्री की कीमत",
@@ -122,6 +149,12 @@ const translations = {
     loadingTopSellers: "शीर्ष विक्रेताओं का विवरण लोड हो रहा है",
     noTopSellers: "इस समूह के लिए अभी तक कोई बिक्री दर्ज नहीं हुई है।",
     topSellersLoadFailed: "शीर्ष विक्रेताओं का विवरण लोड नहीं हो सका।",
+    invoice: "इनवॉइस",
+    pendingApproval: "बोनस स्वीकृत बाकी",
+    onHold: "रोक पर",
+    history: "भुगतान इतिहास",
+    noHistory: "अभी भुगतान इतिहास नहीं है।",
+    untrackedPaid: "पहले भुगतान दर्ज हुआ था, लेकिन उसका लेन-देन विवरण उपलब्ध नहीं है:",
   },
 };
 
@@ -143,13 +176,39 @@ const formatSaleDate = (value, language) => {
       });
 };
 
-const amountDue = (record) =>
-  Math.max(
-    Number(record.final_user_bonus || 0) - Number(record.total_amount_paid || 0),
-    0
-  );
+const amountDue = (record,isAdmin=false) => {
+  if (isAdmin && record.admin_effective_due !== undefined) return Number(record.admin_effective_due || 0);
+  if (!isAdmin && record.effective_due !== undefined) return Number(record.effective_due || 0);
+  const adjustments=Number(record.adjustments||0);
+  const limit=isAdmin&&record.source_sales_invoice_id
+    ? Math.max(Number(record.approved_bonus??record.final_user_bonus??0)+adjustments,0)
+    : Number(record.payable_amount??record.final_user_bonus??0);
+  return Math.max(limit-Number(record.total_amount_paid||0),0);
+};
+
+const amountAwaitingCollection = (record) => record.effective_awaiting_collection !== undefined ? Number(record.effective_awaiting_collection || 0) : Math.max(
+  Number(record.approved_bonus ?? record.final_user_bonus ?? 0) - Math.max(Number(record.payable_amount ?? record.final_user_bonus ?? 0),Number(record.total_amount_paid||0)),
+  0
+);
+
+const untrackedPaidAmount = (record) => {
+  const historyTotal=(record.payments||[]).reduce((sum,payment)=>sum+Number(payment.amount||0),0);
+  return Math.max(Math.round((Number(record.total_amount_paid||0)-historyTotal)*100)/100,0);
+};
+
+const paymentState = (record,isAdmin=false) => {
+  if (record.status === "pending_approval") return "pendingApproval";
+  if (record.status === "on_hold") return "onHold";
+  if (Number(record.recovery_offset || 0) > 0 && amountDue(record,isAdmin) === 0 && Number(record.effective_awaiting_collection || 0) === 0) return "recovered";
+  const due = amountDue(record,isAdmin);
+  if (due > 0) return Number(record.total_amount_paid || 0) > 0 ? "partiallyPaid" : "unpaid";
+  const approved = Number(record.approved_bonus ?? record.final_user_bonus ?? 0);
+  const paid = Number(record.total_amount_paid || 0);
+  return approved > paid ? "awaitingPayment" : "paid";
+};
 
 const SaleBonus = () => {
+  const navigate=useNavigate();
   const { user } = useAuth();
   const isAdmin = user?.userType?.toLowerCase() === "admin";
   const [language, setLanguage] = useState(isAdmin ? "en" : "hi");
@@ -169,6 +228,7 @@ const SaleBonus = () => {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState("");
   const [records, setRecords] = useState([]);
+  const [accountRecoveryBalance, setAccountRecoveryBalance] = useState(0);
   const [recordsLoading, setRecordsLoading] = useState(false);
   const [recordsError, setRecordsError] = useState("");
   const [topSellers, setTopSellers] = useState([]);
@@ -265,6 +325,7 @@ const SaleBonus = () => {
     const userId = isAdmin ? selectedUser?.id : user?.id;
     const requestId = ++recordsRequestRef.current;
     setRecords([]);
+    setAccountRecoveryBalance(0);
     setRecordsError("");
     if (!userId) {
       setRecordsLoading(false);
@@ -279,6 +340,7 @@ const SaleBonus = () => {
         });
         if (requestId === recordsRequestRef.current) {
           setRecords(response.data.records || []);
+          setAccountRecoveryBalance(Number(response.data.user?.recoveryBalance || 0));
         }
       } catch {
         if (requestId === recordsRequestRef.current) {
@@ -301,12 +363,13 @@ const SaleBonus = () => {
         (summary, record) => {
           summary.bonus += Number(record.final_user_bonus || 0);
           summary.paid += Number(record.total_amount_paid || 0);
-          summary.due += amountDue(record);
+          summary.due += amountDue(record,isAdmin);
+          summary.awaitingCollection += amountAwaitingCollection(record);
           return summary;
         },
-        { bonus: 0, paid: 0, due: 0 }
+        { bonus: 0, paid: 0, due: 0, awaitingCollection: 0 }
       ),
-    [records]
+    [records,isAdmin]
   );
 
   const updatePaymentDraft = (recordId, field, value) => {
@@ -322,7 +385,7 @@ const SaleBonus = () => {
   };
 
   const handleRecordPayment = async (record, payRemaining = false) => {
-    const due = amountDue(record);
+    const due = amountDue(record,isAdmin);
     const draft = paymentDrafts[record.id] || {
       amount: "",
       paymentMethod: "CASH",
@@ -344,15 +407,13 @@ const SaleBonus = () => {
     try {
       const response = await api.patch(
         `${API_URL}/sales-bonus/records/${record.id}/payment`,
-        { amount, paymentMethod: draft.paymentMethod }
+        { amount, paymentMethod: draft.paymentMethod, idempotencyKey: window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}` }
       );
-      setRecords((current) =>
-        current.map((currentRecord) =>
-          currentRecord.id === record.id
-            ? { ...currentRecord, ...response.data.record }
-            : currentRecord
-        )
-      );
+      const refreshed = await api.get(`${API_URL}/sales-bonus/records`, {
+        params: isAdmin ? { userId: selectedUser?.id } : undefined,
+      });
+      setRecords(refreshed.data.records || []);
+      setAccountRecoveryBalance(Number(refreshed.data.user?.recoveryBalance || 0));
       setPaymentDrafts((current) => ({
         ...current,
         [record.id]: { ...draft, amount: "" },
@@ -410,6 +471,7 @@ const SaleBonus = () => {
               <ToggleButton value="en">{text.english}</ToggleButton>
               <ToggleButton value="hi">{text.hindi}</ToggleButton>
             </ToggleButtonGroup>
+            {isAdmin&&<Button variant="contained" onClick={()=>navigate('/sales-bonus-management')}>Manage bonus approvals and payments</Button>}
           </Box>
 
           {isAdmin ? (
@@ -556,10 +618,7 @@ const SaleBonus = () => {
               <Box
                 sx={{
                   display: "grid",
-                  gridTemplateColumns: {
-                    xs: "1fr",
-                    sm: "repeat(3, minmax(0, 1fr))",
-                  },
+                  gridTemplateColumns: { xs: "1fr 1fr", sm: "repeat(5, minmax(0, 1fr))" },
                   gap: 2,
                 }}
               >
@@ -587,19 +646,31 @@ const SaleBonus = () => {
                     {INR(totals.due)}
                   </Typography>
                 </Paper>
+                <Paper variant="outlined" sx={{ p: 2 }}>
+                  <Typography variant="body2" color="text.secondary">{text.amountAwaitingCollection}</Typography>
+                  <Typography variant="h6" fontWeight={700}>{INR(totals.awaitingCollection)}</Typography>
+                </Paper>
+                <Paper variant="outlined" sx={{ p: 2, borderColor: accountRecoveryBalance > 0 ? "warning.main" : undefined }}>
+                  <Typography variant="body2" color="text.secondary">{text.recoveryBalance}</Typography>
+                  <Typography variant="h6" fontWeight={700}>{INR(accountRecoveryBalance)}</Typography>
+                </Paper>
               </Box>
 
-              {totals.due > 0 ? (
-                <Alert severity="warning">
-                  {text.outstandingWarning}
+              {accountRecoveryBalance > 0 ? (
+                <Alert severity="warning">{text.recoveryDetails}</Alert>
+              ) : totals.due > 0 ? (
+                <Alert severity={isAdmin?"info":"warning"}>
+                  {isAdmin?text.adminDueWarning:text.outstandingWarning}
                 </Alert>
+              ) : totals.awaitingCollection > 0 ? (
+                <Alert severity="info">{text.awaitingCollectionDetails}</Alert>
               ) : (
                 <Alert severity="success">{text.allPaid}</Alert>
               )}
 
               <Stack useFlexGap spacing={2}>
                 {records.map((record) => {
-                  const due = amountDue(record);
+                  const due = amountDue(record,isAdmin);
                   return (
                     <Paper
                       key={record.id}
@@ -617,12 +688,12 @@ const SaleBonus = () => {
                             {text.saleOn} {formatSaleDate(record.created_at, language)}
                           </Typography>
                           <Typography variant="body2" color="text.secondary">
-                            {text.sale} #{record.id}
+                            {record.invoice_number?`${text.invoice} ${record.invoice_number} · `:''}{text.sale} #{record.id}
                           </Typography>
                         </Box>
                         <Chip
-                          label={due > 0 ? text.paymentDue : text.paid}
-                          color={due > 0 ? "warning" : "success"}
+                          label={text[paymentState(record,isAdmin)]}
+                          color={record.status==='on_hold'?'error':record.status==='pending_approval'?'warning':paymentState(record,isAdmin)==='awaitingPayment'?'info':due > 0 ? "warning" : "success"}
                           variant="outlined"
                         />
                       </Stack>
@@ -682,7 +753,7 @@ const SaleBonus = () => {
                             {text.saleBonus}
                           </Typography>
                           <Typography fontWeight={600}>
-                            {INR(record.final_user_bonus)}
+                            {INR(record.approved_bonus ?? record.final_user_bonus)}
                           </Typography>
                         </Box>
                         <Box>
@@ -709,6 +780,11 @@ const SaleBonus = () => {
                           <Typography fontWeight={600}>
                             {INR(due)}
                           </Typography>
+                          {Number(record.recovery_offset || 0) > 0 && (
+                            <Typography variant="caption" display="block" color="warning.dark">
+                              {text.recoveryOffset}: {INR(record.recovery_offset)}
+                            </Typography>
+                          )}
                         </Box>
                         <Box>
                           <Typography variant="caption" color="text.secondary">
@@ -716,19 +792,20 @@ const SaleBonus = () => {
                           </Typography>
                           <Typography fontWeight={600}>
                             {due === 0
-                              ? text.allPaid
-                              : due < Number(record.final_user_bonus)
+                              ? paymentState(record,isAdmin)==="awaitingPayment" ? text.awaitingCollectionDetails : text.allPaid
+                              : due < Number(record.payable_amount ?? record.final_user_bonus)
                                 ? text.partiallyPaid
                                 : text.unpaid}
                           </Typography>
                         </Box>
                       </Box>
 
-                      {isAdmin && due > 0 && (
+                      <Box sx={{mb:1}}><Typography variant="subtitle2">{text.history}</Typography>{record.payments?.map(payment=><Typography key={payment.id} variant="body2" color="text.secondary">{String(payment.payment_date).slice(0,10)} · {INR(payment.amount)} · {payment.payment_method}{payment.reference?` · ${payment.reference}`:''}</Typography>)}{untrackedPaidAmount(record)>0?<Typography variant="body2" color="text.secondary">{text.untrackedPaid} {INR(untrackedPaidAmount(record))}</Typography>:!record.payments?.length?<Typography variant="body2" color="text.secondary">{text.noHistory}</Typography>:null}</Box>
+
+                      {isAdmin && !["pending_approval", "on_hold", "reversed"].includes(record.status) && due > 0 && (
                         <Box sx={{ mt: 2, pt: 2, borderTop: 1, borderColor: "divider" }}>
-                          <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>
-                            {text.recordPaymentTitle}
-                          </Typography>
+                          {amountAwaitingCollection(record)>0&&<Alert severity="info" sx={{mb:1.5}}>{text.adminPayoutOverride}</Alert>}
+                          <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>{text.recordPaymentTitle}</Typography>
                           <Stack className="ui-form-grid" useFlexGap
                             direction={{ xs: "column", sm: "row" }}
                             spacing={1.5}

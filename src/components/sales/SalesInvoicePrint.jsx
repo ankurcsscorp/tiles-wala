@@ -34,26 +34,27 @@ export default function SalesInvoicePrint({ invoice }) {
   const shippingAddress = invoiceAddress(invoice.customer_address_snapshot, 'shipping');
   const interState = invoice.tax_jurisdiction_snapshot === 'inter_state';
   const items = invoice.items || [];
-  const widths = nonGst ? [44, 12, 12, 16, 16] : billOfSupply ? [4, 28, 9, 10, 13, 10, 13, 13] : [4, 22, 9, 9, 12, 10, 12, 10, 12];
+  const widths = nonGst ? [50, 12, 10, 14, 14] : billOfSupply ? [4, 34, 8, 9, 11, 8, 13, 13] : [4, 30, 8, 8, 10, 8, 11, 9, 12];
 
   return <InvoiceDocument className="invoice-print-sheet" label="Printable sales invoice">
     <InvoicePaymentStamp invoice={invoice} />
     <SalesInvoiceHeader invoice={invoice} />
     {billOfSupply && invoice.registration_category_snapshot === 'COMPOSITION' && <p className="invoice-document-disclosure">Composition taxable person, not eligible to collect tax on supplies.</p>}
-    <section className="invoice-document-parties">
+    <section className={`invoice-document-parties${shippingAddress.length ? ' has-shipping' : ''}`}>
       <div><h2>Bill to</h2><strong className="invoice-document-party-name">{text(invoice.customer_name_snapshot) || 'Walk-in customer'}</strong>
         {billingAddress.map((line, index) => <div key={index}>{line}</div>)}
         {invoice.customer_mobile_snapshot && <div>Phone: {invoice.customer_mobile_snapshot}</div>}
         {!nonGst && invoice.customer_tax_id_snapshot && <div><b>GSTIN:</b> {invoice.customer_tax_id_snapshot}</div>}
       </div>
+      {shippingAddress.length > 0 && <div className="invoice-document-ship"><h2>Ship to</h2>{shippingAddress.map((line, index) => <div key={index}>{line}</div>)}</div>}
       <div><h2>Invoice details</h2><InvoiceDetails>
         <InvoiceDetail label="Invoice no.">{text(invoice.invoice_number)}</InvoiceDetail>
         <InvoiceDetail label="Invoice date">{invoiceDate(invoice.invoice_date)}</InvoiceDetail>
         {invoice.due_date && <InvoiceDetail label="Due date">{invoiceDate(invoice.due_date)}</InvoiceDetail>}
         {invoice.salesperson_name_snapshot && <InvoiceDetail label="Salesperson">{invoice.salesperson_name_snapshot}</InvoiceDetail>}
+        {invoice.referred_by_name_snapshot && <InvoiceDetail label="Referred by">{invoice.referred_by_name_snapshot}</InvoiceDetail>}
         {invoice.place_of_supply_state && <InvoiceDetail label="Place of supply">{invoice.place_of_supply_state}</InvoiceDetail>}
       </InvoiceDetails></div>
-      {shippingAddress.length > 0 && <div className="invoice-document-ship"><h2>Ship to</h2>{shippingAddress.map((line, index) => <div key={index}>{line}</div>)}</div>}
     </section>
 
     <table className="invoice-document-items" aria-label="Sales products">
@@ -62,9 +63,11 @@ export default function SalesInvoicePrint({ invoice }) {
       <tbody>{items.map((line, index) => <tr key={line.id || index}>
         {!nonGst && <td className="invoice-cell-center">{index + 1}</td>}
         <td className="invoice-cell-product"><strong>{text(line.product_name_snapshot || line.product_name)}</strong>
-          {line.sku && <small>SKU: {line.sku}</small>}
-          {line.product_snapshot?.tileSize && <small>{line.product_snapshot.tileSize}</small>}
-          {line.description && line.description !== line.product_snapshot?.tileSize && <small>{line.description}</small>}
+          <span className="invoice-document-product-meta">
+            {line.sku && <small>SKU: {line.sku}</small>}
+            {line.product_snapshot?.tileSize && <small>{line.product_snapshot.tileSize}</small>}
+            {line.description && line.description !== line.product_snapshot?.tileSize && <small>{line.description}</small>}
+          </span>
         </td>
         {!nonGst && <td className="invoice-cell-center">{text(line.product_snapshot?.hsnCode) || '—'}</td>}
         <td>{invoiceQuantity(line.quantity)}{!nonGst && <small>{text(line.unit_name || line.unit_code) || '—'}</small>}</td>

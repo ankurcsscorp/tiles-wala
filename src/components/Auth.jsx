@@ -28,6 +28,7 @@ const Auth = ({
   onCancel,
   hideToggle = false,
   initialMode = "login",
+  allowedUserTypes = null,
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -233,10 +234,7 @@ const Auth = ({
                   required
                 >
                   <option value="">Select user type</option>
-                  <option value="Admin">Admin</option>
-                  <option value="Salesperson">Salesperson</option>
-                  <option value="Tile Mistire">Tiles Misti</option>
-                  <option value="Plumber Mistiri">Plumber Mistiri</option>
+                  {(allowedUserTypes || ["Admin", "Salesperson", "Tile Mistire", "Plumber Mistiri"]).map((type) => <option key={type} value={type}>{type === "Tile Mistire" ? "Tiles Misti" : type}</option>)}
                 </select>
                 {errors.userType && (
                   <span className="error">{errors.userType}</span>
