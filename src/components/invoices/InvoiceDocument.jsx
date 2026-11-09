@@ -10,14 +10,14 @@ export function InvoiceDocument({ className, label, children }) {
 }
 
 export function InvoiceHeader({ name, address, phone, email, gstin, logo, title, copy = 'Original for recipient' }) {
-  const addressLine = invoiceAddress(address).join(', ');
+  const addressLines = invoiceAddress(address);
   return <header className="invoice-document-header">
     <div className="invoice-document-heading"><strong>{title}</strong><span>{copy}</span></div>
     <div className="invoice-document-brand">
       {logo && <img src={logo} alt={`${name} logo`} />}
       <div><h1>{name || 'Store'}</h1>
-        {(addressLine || phone || email || gstin) && <div className="invoice-document-contact">
-          {addressLine && <span>{addressLine}</span>}
+        {(addressLines.length || phone || email || gstin) && <div className="invoice-document-contact">
+          {addressLines.map((line,index)=><span key={`${index}-${line}`}>{line}</span>)}
           {phone && <span>Phone: {phone}</span>}
           {email && <span>Email: {email}</span>}
           {gstin && <span><b>GSTIN:</b> {gstin}</span>}

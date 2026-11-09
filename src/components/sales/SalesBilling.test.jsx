@@ -80,7 +80,34 @@ test('cancelling an invoice requires explicit confirmation before calling the ex
   await waitFor(() => expect(api.post).toHaveBeenCalledWith('http://localhost:4000/api/tiles/sales/42/cancel'));
 });
 
-test('Non-GST editor hides tax and adjustments and recalculates quantity times rate',async()=>{
+test('draft invoice detail provides a clear path to the finalization form', async () => {
+  render(<MemoryRouter initialEntries={['/sales/42']}><Routes><Route path="/sales/:id" element={<SalesBilling />} /></Routes></MemoryRouter>);
+  fireEvent.click(await screen.findByRole('button', { name: 'Review & finalize' }));
+  expect(await screen.findByRole('button', { name: 'Finalize invoice' })).toBeInTheDocument();
+});
+
+test('Admin previews and saves a full posted Non-GST invoice revision', async () => {
+  const posted={...draft,status:'posted',invoice_number:'AA26-0011',total:'850.00',amount_received:'100.00',outstanding_balance:'750.00',revision_number:0,vehicle_number:'',driver_name:'',driver_contact_number:'',invoice_type:'NON_GST',document_type:'NON_GST_COMMERCIAL',invoice_layout:'SIMPLE_LAYOUT',invoice_discount:'0',additional_charges:'0',round_off:'0',subtotal:'850.00',items:[{id:9,product_id:7,sku:'COSTA-1',product_name:'Costa Tile',description:'Costa Tile',product_snapshot:{tileSize:'600 x 1200'},unit_id:1,unit_name:'Box',unit_price:'850',quantity:'1',discount_amount:'0',tax_rate:'0',taxable_value:'850.00',tax_amount:'0',line_total:'850.00'}]};
+  api.get.mockImplementation(url=>Promise.resolve({data:url.endsWith('/invoice-settings')?{data:{invoiceType:'GST'}}:url.endsWith('/sales/42')?posted:[]}));
+  api.post.mockImplementation(url=>url.endsWith('/revision-preview')?Promise.resolve({data:{invoiceNumber:'AA26-0011',revisionNumber:0,reason:'Delivery details corrected',changes:[{field:'vehicleNumber',previous:null,updated:'BR01AB1234'},{field:'Billing address',previous:{},updated:{line1:'Shop Road'}}],oldTotal:'850.00',newTotal:'850.00',verifiedPayments:'100.00',newOutstanding:'750.00',previewToken:'signed-preview'}}):Promise.resolve({data:{invoice:{...posted,vehicle_number:'BR01AB1234',revision_number:1}}}));
+  render(<MemoryRouter initialEntries={['/sales/42']}><Routes><Route path="/sales/:id" element={<SalesBilling />} /></Routes></MemoryRouter>);
+  fireEvent.click(await screen.findByRole('button',{name:'Edit invoice'}));
+  fireEvent.change(screen.getByLabelText('Qty'),{target:{value:'2'}});
+  fireEvent.change(screen.getByLabelText('Vehicle number'),{target:{value:'BR01AB1234'}});
+  fireEvent.change(screen.getByLabelText('Reason for invoice revision'),{target:{value:'Delivery details corrected'}});
+  fireEvent.click(screen.getByRole('button',{name:'Update Sales Invoice'}));
+  await screen.findByRole('button',{name:'Confirm Update Sales Invoice'});
+  expect(screen.getByText(/line1: Shop Road/)).toBeInTheDocument();
+  const previewCall=api.post.mock.calls.find(([url])=>url.endsWith('/revision-preview'));
+  expect(previewCall[1]).not.toHaveProperty('invoiceDate');
+  fireEvent.click(await screen.findByRole('button',{name:'Confirm Update Sales Invoice'}));
+  await waitFor(()=>expect(api.post).toHaveBeenCalledWith('http://localhost:4000/api/tiles/sales/42/revisions',expect.objectContaining({vehicleNumber:'BR01AB1234',reason:'Delivery details corrected',previewToken:'signed-preview',items:[expect.objectContaining({quantity:'2',unitId:'1',unitPrice:'850'})]})));
+  const saveCall=api.post.mock.calls.find(([url])=>url.endsWith('/revisions'))[1];
+  expect(saveCall).toHaveProperty('transportMode','');
+  expect(await screen.findByRole('button',{name:'Print invoice'})).toBeInTheDocument();
+});
+
+test('Non-GST editor allows optional labour or transport charges while keeping tax and discounts off',async()=>{
  api.get.mockImplementation(url=>Promise.resolve({data:url.endsWith('/invoice-settings')?{data:{invoiceType:'NON_GST',registrationStatus:'UNREGISTERED'}}:url.endsWith('/products/search')?{items:[{...product,default_selling_price:'850',tax_rate:'18'}]}:url.endsWith('/units')?[{id:1,name:'Box'}]:[]}));
  render(billingPage());fireEvent.click(screen.getByRole('button',{name:'New invoice'}));
  await screen.findByText(/Non-GST Commercial Invoice/);
@@ -88,12 +115,13 @@ test('Non-GST editor hides tax and adjustments and recalculates quantity times r
  fireEvent.change(screen.getByRole('combobox',{name:'Search products by SKU or name'}),{target:{value:'costa'}});
  fireEvent.click(await screen.findByRole('option',{name:'COSTA-1 · Costa Tile'}));
  await screen.findByRole('button',{name:'Remove'});
- expect(screen.queryByLabelText('Tax %')).not.toBeInTheDocument();expect(screen.queryByLabelText('Discount')).not.toBeInTheDocument();expect(screen.queryByLabelText('Invoice discount')).not.toBeInTheDocument();expect(screen.queryByText('Estimated tax')).not.toBeInTheDocument();
+ expect(screen.queryByLabelText('Tax %')).not.toBeInTheDocument();expect(screen.queryByLabelText('Discount')).not.toBeInTheDocument();expect(screen.queryByLabelText('Invoice discount')).not.toBeInTheDocument();expect(screen.queryByText('Estimated tax')).not.toBeInTheDocument();expect(screen.getByLabelText('Additional charges')).toBeInTheDocument();
  fireEvent.change(screen.getByLabelText('Qty'),{target:{value:'10'}});
  expect(screen.getAllByText('₹8,500')).toHaveLength(2);
  fireEvent.change(screen.getByLabelText('Rate'),{target:{value:'600'}});
  expect(screen.getAllByText('₹6,000')).toHaveLength(2);
- fireEvent.click(screen.getByRole('button',{name:'Remove'}));expect(screen.getByText('₹0')).toBeInTheDocument();
+ fireEvent.change(screen.getByLabelText('Additional charges'),{target:{value:'75'}});expect(screen.getByText('₹6,075')).toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Remove'}));expect(screen.getAllByText('₹75')).toHaveLength(2);
 });
 
 test('Simple Layout on a GST invoice hides tax inputs while retaining the tax in the grand total',async()=>{
@@ -104,6 +132,7 @@ test('Simple Layout on a GST invoice hides tax inputs while retaining the tax in
  expect(screen.queryByLabelText('Tax %')).not.toBeInTheDocument();expect(screen.queryByLabelText('Discount')).not.toBeInTheDocument();
  expect(screen.getByText('Estimated tax')).toBeInTheDocument();expect(screen.getByText('₹18')).toBeInTheDocument();expect(screen.getByText('₹118')).toBeInTheDocument();
  fireEvent.change(screen.getByLabelText('Qty'),{target:{value:'2'}});expect(screen.getByText('₹236')).toBeInTheDocument();
+ fireEvent.change(screen.getByLabelText('Additional charges'),{target:{value:'75'}});expect(screen.getByText('₹311')).toBeInTheDocument();
 });
 
 const storeTaxSettings=(status='UNKNOWN',category='UNKNOWN',canEdit=true)=>({
@@ -140,7 +169,7 @@ test('incomplete tax setup can be completed inside Simple Billing without losing
  await waitFor(()=>expect(screen.queryByRole('dialog',{name:'Complete store tax setup'})).not.toBeInTheDocument());
  await waitFor(()=>expect(screen.getByRole('button',{name:'Save draft'})).toBeEnabled());
  expect(screen.getByRole('button',{name:'Finalize invoice'})).toBeEnabled();expect(screen.getByLabelText('Qty')).toHaveValue(12);expect(screen.getByLabelText('Rate')).toHaveValue(850);
- expect(screen.getByText('₹12,036')).toBeInTheDocument();expect(screen.queryByText('Item discounts')).not.toBeInTheDocument();expect(screen.queryByText('Additional charges')).not.toBeInTheDocument();
+ expect(screen.getByText('₹12,036')).toBeInTheDocument();expect(screen.queryByText('Item discounts')).not.toBeInTheDocument();expect(screen.getByLabelText('Additional charges')).toHaveValue(0);
  expect(api.put).toHaveBeenCalledWith('http://localhost:4000/api/tiles/stores/1/invoice-settings',{registrationStatus:'REGISTERED',registrationCategory:'REGULAR',defaultDocumentType:'GST_TAX_INVOICE'});
  expect(api.post).not.toHaveBeenCalled();
 });
@@ -218,7 +247,7 @@ test('reported saved Bill of Supply default shows the product repair action with
 });
 test('Simple GST uses its saved GST default and validates full/partial/zero and excessive payment inline',async()=>{
  setupEligibleSale();render(billingPage());await addSaleProduct();
- expect(screen.getByLabelText('Product columns')).toHaveTextContent('Product NameQuantityUnitRateLine Total');
+ expect(screen.getByLabelText('Product columns')).toHaveTextContent('Product NameQuantityUnitRateTotal');
  expect(screen.getByRole('combobox',{name:'Tax document type'})).toHaveTextContent('GST Tax Invoice');
  expect(screen.queryByLabelText('Tax %')).not.toBeInTheDocument();
  fireEvent.click(screen.getByRole('button',{name:'Finalize invoice'}));
@@ -239,6 +268,17 @@ test('mark fully paid submits the entire GST-inclusive amount through the existi
  expect(dialog.getByLabelText('Amount received now (optional)')).toHaveValue('3009.00');
  fireEvent.click(dialog.getByRole('button',{name:'Confirm & finalize'}));
  await waitFor(()=>expect(api.post).toHaveBeenCalledWith('http://localhost:4000/api/tiles/sales/42/finalize',{payment:expect.objectContaining({amount:'3009.00',method:'cash',idempotencyKey:expect.any(String)})}));
+});
+
+test('finalizing a dealer order invoice already open at the same URL switches from editor to posted invoice detail',async()=>{
+ setupEligibleSale();
+ const dealerDraft={...draft,status:'draft',dealer_order_id:6,dealer_order_transport_charge:'400.00',additional_charges:'400.00',total:'3034.00',invoice_type:'GST',invoice_layout:'SIMPLE_LAYOUT',document_type:'GST_TAX_INVOICE',items:[{id:1,product_id:7,unit_id:1,unit_name:'Box',quantity:'3',unit_price:'850.00',discount_amount:'0.00',tax_rate:'18',product_name:'Costa Tile'}]};
+ api.get.mockImplementation(url=>Promise.resolve({data:url.endsWith('/sales/42')?dealerDraft:url.endsWith('/invoice-settings')?{data:{...storeTaxSettings('REGISTERED','REGULAR'),defaultDocumentType:'GST_TAX_INVOICE'}}:url.endsWith('/units')?[{id:1,name:'Box'}]:[]}));
+ api.put.mockResolvedValue({data:dealerDraft});api.post.mockImplementation(url=>Promise.resolve({data:url.endsWith('/finalize')?{...dealerDraft,status:'posted',invoice_number:'INV-42'}:{}}));
+ render(<MemoryRouter initialEntries={['/sales/42']}><Routes><Route path="/sales/:id" element={<SalesBilling/>}/></Routes></MemoryRouter>);
+ fireEvent.click(await screen.findByRole('button',{name:'Review & finalize'}));fireEvent.click(await screen.findByRole('button',{name:'Finalize invoice'}));
+ fireEvent.click(within(await screen.findByRole('dialog',{name:'Finalize invoice'})).getByRole('button',{name:'Confirm & finalize'}));
+ expect(await screen.findByRole('button',{name:'Print invoice'})).toBeInTheDocument();expect((await screen.findAllByText('INV-42')).length).toBeGreaterThan(0);
 });
 
 test('full payment rechecks a changed saved total and retries the same draft after review',async()=>{
@@ -297,7 +337,7 @@ test('Non-GST mode finalizes without GSTIN, registration, HSN, classification, o
  expect(screen.queryByRole('button',{name:'Complete tax setup'})).not.toBeInTheDocument();
  expect(screen.queryByRole('link',{name:'Update product'})).not.toBeInTheDocument();
  expect(screen.queryByLabelText('Tax %')).not.toBeInTheDocument();expect(screen.queryByText('Estimated tax')).not.toBeInTheDocument();
- expect(screen.getByText('Grand total').parentElement).toHaveTextContent('₹2,550');
+ expect(screen.getAllByText('Total').find(node=>node.parentElement.matches('.sales-totals h5')).parentElement).toHaveTextContent('₹2,550');
  expect(screen.getByRole('button',{name:'Finalize invoice'})).toBeEnabled();
  const saved={...draft,invoice_layout:'SIMPLE_LAYOUT',document_type:'NON_GST_COMMERCIAL',invoice_type:'NON_GST'};
  api.post.mockResolvedValue({data:saved});fireEvent.click(screen.getByRole('button',{name:'Finalize invoice'}));

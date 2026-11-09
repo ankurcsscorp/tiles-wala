@@ -32,6 +32,9 @@ export default function SalesInvoicePrint({ invoice }) {
   const billOfSupply = invoice.document_type === 'BILL_OF_SUPPLY';
   const billingAddress = invoiceAddress(invoice.customer_address_snapshot, 'billing');
   const shippingAddress = invoiceAddress(invoice.customer_address_snapshot, 'shipping');
+  const transportMode=invoice.transport_mode_snapshot||invoice.dealer_order_transport_mode;
+  const transportModeName={SELF:'Self Pickup',TOTO:'Toto',THELA:'CNG Auto',PICKUP:'Pickup'}[transportMode]||transportMode;
+  const hasTransport=Boolean(invoice.vehicle_number||invoice.driver_name||invoice.driver_contact_number||transportModeName);
   const interState = invoice.tax_jurisdiction_snapshot === 'inter_state';
   const items = invoice.items || [];
   const widths = nonGst ? [50, 12, 10, 14, 14] : billOfSupply ? [4, 34, 8, 9, 11, 8, 13, 13] : [4, 30, 8, 8, 10, 8, 11, 9, 12];
@@ -40,13 +43,13 @@ export default function SalesInvoicePrint({ invoice }) {
     <InvoicePaymentStamp invoice={invoice} />
     <SalesInvoiceHeader invoice={invoice} />
     {billOfSupply && invoice.registration_category_snapshot === 'COMPOSITION' && <p className="invoice-document-disclosure">Composition taxable person, not eligible to collect tax on supplies.</p>}
-    <section className={`invoice-document-parties${shippingAddress.length ? ' has-shipping' : ''}`}>
+    <section className={`invoice-document-parties${shippingAddress.length||hasTransport ? ' has-shipping' : ''}`}>
       <div><h2>Bill to</h2><strong className="invoice-document-party-name">{text(invoice.customer_name_snapshot) || 'Walk-in customer'}</strong>
         {billingAddress.map((line, index) => <div key={index}>{line}</div>)}
         {invoice.customer_mobile_snapshot && <div>Phone: {invoice.customer_mobile_snapshot}</div>}
         {!nonGst && invoice.customer_tax_id_snapshot && <div><b>GSTIN:</b> {invoice.customer_tax_id_snapshot}</div>}
       </div>
-      {shippingAddress.length > 0 && <div className="invoice-document-ship"><h2>Ship to</h2>{shippingAddress.map((line, index) => <div key={index}>{line}</div>)}</div>}
+      {(shippingAddress.length > 0||hasTransport) && <div className="invoice-document-ship"><h2>Ship to</h2>{shippingAddress.map((line, index) => <div key={index}>{line}</div>)}{hasTransport&&<div className="invoice-document-transport">{transportModeName&&<span><b>Transport:</b> {transportModeName}</span>}{invoice.vehicle_number&&<span><b>Vehicle:</b> {invoice.vehicle_number}</span>}{invoice.driver_name&&<span><b>Driver:</b> {invoice.driver_name}</span>}{invoice.driver_contact_number&&<span><b>Contact:</b> {invoice.driver_contact_number}</span>}</div>}</div>}
       <div><h2>Invoice details</h2><InvoiceDetails>
         <InvoiceDetail label="Invoice no.">{text(invoice.invoice_number)}</InvoiceDetail>
         <InvoiceDetail label="Invoice date">{invoiceDate(invoice.invoice_date)}</InvoiceDetail>
@@ -59,7 +62,7 @@ export default function SalesInvoicePrint({ invoice }) {
 
     <table className="invoice-document-items" aria-label="Sales products">
       <colgroup>{widths.map((width, index) => <col key={index} style={{ width: `${width}%` }} />)}</colgroup>
-      <thead><tr>{!nonGst && <th className="invoice-cell-center">#</th>}<th className="invoice-cell-product">Product / description</th>{!nonGst && <th className="invoice-cell-center">HSN</th>}<th>Qty</th>{nonGst && <th className="invoice-cell-center">Unit</th>}<th>Rate</th>{!nonGst && <><th>Discount</th><th>{billOfSupply ? 'Value' : 'Taxable'}</th>{!billOfSupply && <th>Tax</th>}</>}<th>Line total</th></tr></thead>
+      <thead><tr>{!nonGst && <th className="invoice-cell-center">#</th>}<th className="invoice-cell-product">Product / description</th>{!nonGst && <th className="invoice-cell-center">HSN</th>}<th>Qty</th>{nonGst && <th className="invoice-cell-center">Unit</th>}<th>Rate</th>{!nonGst && <><th>Discount</th><th>{billOfSupply ? 'Value' : 'Taxable'}</th>{!billOfSupply && <th>Tax</th>}</>}<th>Total</th></tr></thead>
       <tbody>{items.map((line, index) => <tr key={line.id || index}>
         {!nonGst && <td className="invoice-cell-center">{index + 1}</td>}
         <td className="invoice-cell-product"><strong>{text(line.product_name_snapshot || line.product_name)}</strong>
@@ -90,7 +93,8 @@ export default function SalesInvoicePrint({ invoice }) {
       </div>
       <div className="invoice-document-totals">
         {!nonGst && <><InvoiceTotalRow label="Subtotal" value={invoice.subtotal} /><InvoiceTotalRow label="Discounts" value={invoice.discount_total} />
-          <InvoiceTotalRow label="Additional charges" value={invoice.additional_charges} /><InvoiceTotalRow label="Round-off" value={invoice.round_off} /></>}
+          <InvoiceTotalRow label="Round-off" value={invoice.round_off} /></>}
+        <InvoiceTotalRow label={`Additional charges / transport${invoice.dealer_order_transport_mode ? ` · ${{SELF:'Self Pickup',TOTO:'Toto',THELA:'CNG AUTO',PICKUP:'Pickup'}[invoice.dealer_order_transport_mode]||invoice.dealer_order_transport_mode}` : ''}`} value={invoice.additional_charges} />
         <InvoiceTotalRow label="Grand Total" value={invoice.total} emphasis />
         <InvoiceTotalRow label="Amount received" value={invoice.amount_received} />
         {Number(invoice.return_credit) > 0 && <InvoiceTotalRow label="Return credit" value={invoice.return_credit} />}

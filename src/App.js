@@ -36,6 +36,17 @@ import StockTransferManagement from "./components/transfers/StockTransferManagem
 import ReturnManagement from "./components/returns/ReturnManagement";
 import FinancialReporting from "./components/finance/FinancialReporting";
 import Dashboard from "./components/dashboard/Dashboard";
+import DealerProducts from './components/dealer/DealerProducts';
+import DealerCart from './components/dealer/DealerCart';
+import DealerCheckout from './components/dealer/DealerCheckout';
+import DealerOrders from './components/dealer/DealerOrders';
+import AdminDealerPayments from './components/dealer/AdminDealerPayments';
+import AdminDealerOrders from './components/dealer/AdminDealerOrders';
+import DealerDashboard from './components/dealer/DealerDashboard';
+import DealerLedger from './components/dealer/DealerLedger';
+import DealerAccount from './components/dealer/DealerAccount';
+import AdminDealerReports from './components/dealer/AdminDealerReports';
+import { DealerCartProvider } from './context/DealerCartContext';
 
 const ProtectedRoute = ({ allowedUserTypes, children }) => {
   const { isAuthenticated, user } = useAuth();
@@ -63,7 +74,7 @@ const ProtectedRoute = ({ allowedUserTypes, children }) => {
 const AppContent = () => {
   const location = useLocation();
   const isVisualizer = location.pathname === "/visualizer";
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const Shell = isAuthenticated && !isVisualizer ? BusinessShell : React.Fragment;
 
   return (
@@ -73,6 +84,19 @@ const AppContent = () => {
       <Routes>
         <Route path="/auth" element={<Auth />} />
         <Route path="/" element={<NewCollection />} />
+        <Route path="/dealer/dashboard" element={<ProtectedRoute allowedUserTypes={["dealer"]}><DealerDashboard /></ProtectedRoute>} />
+        <Route path="/dealer/products" element={<ProtectedRoute allowedUserTypes={["dealer"]}><DealerProducts /></ProtectedRoute>} />
+        <Route path="/dealer/cart" element={<ProtectedRoute allowedUserTypes={["dealer"]}><DealerCart /></ProtectedRoute>} />
+        <Route path="/dealer/checkout" element={<ProtectedRoute allowedUserTypes={["dealer"]}><DealerCheckout /></ProtectedRoute>} />
+        <Route path="/dealer/orders" element={<ProtectedRoute allowedUserTypes={["dealer"]}><DealerOrders /></ProtectedRoute>} />
+        <Route path="/dealer/quotations" element={<ProtectedRoute allowedUserTypes={["dealer"]}><DealerAccount view="quotations" /></ProtectedRoute>} />
+        <Route path="/dealer/invoices" element={<ProtectedRoute allowedUserTypes={["dealer"]}><DealerAccount view="invoices" /></ProtectedRoute>} />
+        <Route path="/dealer/my-payments" element={<ProtectedRoute allowedUserTypes={["dealer"]}><DealerAccount view="payments" /></ProtectedRoute>} />
+        <Route path="/dealer/ledger" element={<ProtectedRoute allowedUserTypes={["dealer"]}><DealerLedger /></ProtectedRoute>} />
+        <Route path="/dealer/profile" element={<ProtectedRoute allowedUserTypes={["dealer"]}><DealerAccount view="profile" /></ProtectedRoute>} />
+        <Route path="/dealer/payments" element={<ProtectedRoute allowedUserTypes={["admin"]}><AdminDealerPayments /></ProtectedRoute>} />
+        <Route path="/dealer/orders/manage" element={<ProtectedRoute allowedUserTypes={["admin"]}><AdminDealerOrders /></ProtectedRoute>} />
+        <Route path="/dealer/reports" element={<ProtectedRoute allowedUserTypes={["admin"]}><AdminDealerReports /></ProtectedRoute>} />
         <Route path="/visualizer" element={<TileVisualizer />} />
         <Route path="/contact" element={<ContactUs />} />
         <Route path="/enquiry" element={<EnquiryForm />} />
@@ -133,9 +157,11 @@ function App() {
   return (
     <AuthProvider>
       <StoreProvider>
-        <Router>
-          <AppContent />
-        </Router>
+        <DealerCartProvider>
+          <Router>
+            <AppContent />
+          </Router>
+        </DealerCartProvider>
       </StoreProvider>
     </AuthProvider>
   );

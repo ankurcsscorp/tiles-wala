@@ -1,12 +1,12 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {Alert, Box, Button, CircularProgress, FormControl, FormControlLabel, FormLabel, MenuItem, Paper, Radio, RadioGroup, Stack, TextField, Typography} from '@mui/material';
+import {Alert, Box, Button, CircularProgress, FormControl, FormControlLabel, FormLabel, MenuItem, Paper, Radio, RadioGroup, Stack, Switch, TextField, Typography} from '@mui/material';
 import {Link} from 'react-router-dom';
 import api from '../../api';
 import {useStores} from '../../context/StoreContext';
 import {documentWarning} from '../../utils/invoicePolicy';
 const endpoint=id=>'http://localhost:4000/api/tiles/stores/'+id+'/invoice-settings';
 const paymentFields=[['accountName','Account holder name',160],['accountNumber','Account number',34],['bankName','Bank name',160],['branch','Branch',160],['ifscCode','IFSC code',11],['upiId','UPI ID',128]];
-const defaults=s=>({billingMode:s.billingMode==='NON_GST'||s.defaultDocumentType==='NON_GST_COMMERCIAL'?'NON_GST':'GST',registrationStatus:s.registrationStatus||'UNKNOWN',registrationCategory:s.registrationCategory||'UNKNOWN',termsAndConditions:s.termsAndConditions||'',paymentDetails:Object.fromEntries(paymentFields.map(([key])=>[key,s.paymentDetails?.[key]||'']))});
+const defaults=s=>({billingMode:s.billingMode==='NON_GST'||s.defaultDocumentType==='NON_GST_COMMERCIAL'?'NON_GST':'GST',registrationStatus:s.registrationStatus||'UNKNOWN',registrationCategory:s.registrationCategory||'UNKNOWN',termsAndConditions:s.termsAndConditions||'',paymentDetails:Object.fromEntries(paymentFields.map(([key])=>[key,s.paymentDetails?.[key]||''])),partialDealerPaymentsEnabled:Boolean(s.partialDealerPaymentsEnabled)});
 export default function InvoiceSettings() {
   const {stores,selectedStoreId,selectStore}=useStores();
   const activeStore=useRef(selectedStoreId);activeStore.current=selectedStoreId;
@@ -25,7 +25,7 @@ export default function InvoiceSettings() {
   const warning=settings&&gst?documentWarning({gstin:settings.gstin,tax_id:settings.hasStoredTaxId&&!settings.gstin?'saved identifier':null,gst_registration_status:form.registrationStatus,gst_registration_category:form.registrationCategory},'GST_TAX_INVOICE'):null;
   const initial=settings?defaults(settings):null;
   const taxChanged=initial&&(form.billingMode!==initial.billingMode||(gst&&(form.registrationStatus!==initial.registrationStatus||form.registrationCategory!==initial.registrationCategory)));
-  const detailsChanged=initial&&(form.termsAndConditions!==initial.termsAndConditions||JSON.stringify(form.paymentDetails)!==JSON.stringify(initial.paymentDetails));
+  const detailsChanged=initial&&(form.termsAndConditions!==initial.termsAndConditions||JSON.stringify(form.paymentDetails)!==JSON.stringify(initial.paymentDetails)||form.partialDealerPaymentsEnabled!==initial.partialDealerPaymentsEnabled);
   const blockingWarning=warning&&(taxChanged||!detailsChanged)?warning:null;
   const set=(key,value)=>{setForm(f=>({...f,[key]:value}));setError('');setSuccess('');};
   const save=async()=>{
@@ -35,6 +35,7 @@ export default function InvoiceSettings() {
     if(gst)for(const key of ['registrationStatus','registrationCategory'])if(form[key]!==initial[key])payload[key]=form[key];
     if(form.termsAndConditions!==initial.termsAndConditions)payload.termsAndConditions=form.termsAndConditions;
     if(JSON.stringify(form.paymentDetails)!==JSON.stringify(initial.paymentDetails))payload.paymentDetails=form.paymentDetails;
+    if(form.partialDealerPaymentsEnabled!==initial.partialDealerPaymentsEnabled)payload.partialDealerPaymentsEnabled=form.partialDealerPaymentsEnabled;
     const savingStore=selectedStoreId;
     setBusy(true);setError('');setSuccess('');
     try{const r=await api.put(endpoint(savingStore),payload);if(activeStore.current===savingStore){setSettings(r.data.data);setForm(defaults(r.data.data));setSuccess('Billing settings saved. Terms and payment details apply to newly finalized sales invoices.');}}
@@ -68,12 +69,16 @@ export default function InvoiceSettings() {
         </>}
         <Typography variant="h6">Sales invoice terms and conditions</Typography>
         <TextField label="Terms and conditions" multiline minRows={4} value={form.termsAndConditions} disabled={disabled} onChange={e=>set('termsAndConditions',e.target.value)} slotProps={{htmlInput:{maxLength:10000}}} helperText="Enter one condition per line. These terms print on sales invoices."/>
+        <Typography variant="h6">Dealer order UPI payments</Typography>
+        <Typography variant="body2" color="text.secondary">The UPI ID below is used to create order specific payment links and QR codes. Manual UTR verification is required; a dealer claim is never treated as payment until verified by an Admin.</Typography>
+        <TextField label="Receiving UPI ID" placeholder="8109961022@indianbk" value={form.paymentDetails.upiId} disabled={disabled} onChange={e=>set('paymentDetails',{...form.paymentDetails,upiId:e.target.value.trim()})} slotProps={{htmlInput:{maxLength:128}}} helperText="Store specific. Dealers cannot change the receiving UPI ID."/>
+        <FormControlLabel control={<Switch checked={form.partialDealerPaymentsEnabled} disabled={disabled} onChange={e=>set('partialDealerPaymentsEnabled',e.target.checked)}/>} label="Allow partial dealer order payments"/>
+        <Typography variant="body2" color="text.secondary">Payee name is taken from the store name. Manual verification is always required for direct UPI payments.</Typography>
         <Typography variant="h6">Bank details for customer payments</Typography>
         <Typography variant="body2" color="text.secondary">Optional. To show a bank account, enter the account holder, account number, bank name and IFSC. Branch is optional.</Typography>
         <Box sx={{display:'grid',gridTemplateColumns:{xs:'1fr',sm:'1fr 1fr'},gap:2}}>
           {paymentFields.filter(([key])=>key!=='upiId').map(([key,label,maxLength])=><TextField key={key} label={label} value={form.paymentDetails[key]} disabled={disabled} onChange={e=>set('paymentDetails',{...form.paymentDetails,[key]:key==='ifscCode'?e.target.value.toUpperCase():e.target.value})} slotProps={{htmlInput:{maxLength,...(key==='accountNumber'?{inputMode:'numeric'}:{})}}}/>) }
         </Box>
-        <TextField label="UPI ID" placeholder="shop@bank" value={form.paymentDetails.upiId} disabled={disabled} onChange={e=>set('paymentDetails',{...form.paymentDetails,upiId:e.target.value})} slotProps={{htmlInput:{maxLength:128}}} helperText="Optional. Printed as text so customers can pay using their UPI app."/>
         <Typography variant="body2" color="text.secondary">Payment details are specific to this store and appear only on sales invoices. Finalized invoices keep their saved terms and payment details.</Typography>
         <Typography variant="body2" color="text.secondary">Existing drafts and finalized invoices keep their saved format and totals. Saved business identifiers and registration declarations are preserved when switching to Non-GST.</Typography>
         <Button variant="contained" disabled={disabled||Boolean(blockingWarning)} onClick={save}>{busy?'Saving…':'Save Settings'}</Button>

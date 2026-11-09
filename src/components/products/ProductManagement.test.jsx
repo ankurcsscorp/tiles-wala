@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import ProductManagement from "./ProductManagement";
 import api from "../../api";
 
@@ -29,5 +29,32 @@ test('invoice repair link opens the named product editor',async()=>{
   expect(await screen.findByDisplayValue('Costa Blue')).toBeInTheDocument();
   expect(api.get).toHaveBeenCalledWith('http://localhost:4000/api/tiles/products/43');
   expect(screen.getByDisplayValue('657854')).toBeInTheDocument();
+ }finally{window.history.replaceState({},'', '/');}
+});
+
+test('admin saves an explicit dealer price for its unit without changing retail price',async()=>{
+ window.history.replaceState({},'', '/products?edit=43');
+ api.get.mockImplementation(url=>{
+  if(url.endsWith('/categories'))return Promise.resolve({data:[{id:5,name:'Floor',is_active:true}]});
+  if(url.endsWith('/units'))return Promise.resolve({data:[{id:1,name:'Piece',code:'PCS',is_active:true},{id:2,name:'Box',code:'BOX',is_active:true}]});
+  if(url.endsWith('/43/conversions'))return Promise.resolve({data:[{unit_id:2,name:'Box',factor_to_base:'4'}]});
+  if(url.endsWith('/43'))return Promise.resolve({data:{id:43,sku:'TILE-43',name:'GVT Tile',category_id:5,base_unit_id:1,sales_unit_id:2,default_selling_price:'950.0000',available_for_dealer_ordering:true,dealer_prices:[{unitId:'2',price:'850.0000',mrp:'1200.00'}],is_active:true}});
+  return Promise.resolve({data:{items:[],pagination:{total:0,totalPages:0}}});
+ });
+ api.put.mockResolvedValue({data:{}});
+ try{
+  render(<ProductManagement/>);
+  const dealerPrice=await screen.findByRole('spinbutton',{name:'Dealer price (₹) per Box'});
+  expect(dealerPrice).toHaveValue(850);
+  expect(screen.getByRole('spinbutton',{name:'MRP (₹) per Box'})).toHaveValue(1200);
+  fireEvent.change(dealerPrice,{target:{value:'900'}});
+  fireEvent.change(screen.getByRole('spinbutton',{name:'MRP (₹) per Box'}),{target:{value:'1250.50'}});
+  fireEvent.change(screen.getByRole('spinbutton',{name:'Default selling price'}),{target:{value:'950'}});
+  fireEvent.click(screen.getByRole('button',{name:'Save product'}));
+  await waitFor(()=>expect(api.put).toHaveBeenCalled());
+  const payload=api.put.mock.calls[0][1];
+  expect(payload.availableForDealerOrdering).toBe(true);
+  expect(payload.dealerPrices).toContainEqual({unitId:'2',price:'900',mrp:'1250.50'});
+  expect(payload.defaultSellingPrice).toBe('950.0000');
  }finally{window.history.replaceState({},'', '/');}
 });

@@ -405,7 +405,7 @@ const SaleBonus = () => {
     setPaymentSubmittingId(record.id);
     setPaymentFeedback((current) => ({ ...current, [record.id]: null }));
     try {
-      const response = await api.patch(
+      await api.patch(
         `${API_URL}/sales-bonus/records/${record.id}/payment`,
         { amount, paymentMethod: draft.paymentMethod, idempotencyKey: window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}` }
       );

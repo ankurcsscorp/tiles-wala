@@ -16,10 +16,13 @@ import Bonus from '@mui/icons-material/WorkspacePremiumOutlined';
 import Enquiry from '@mui/icons-material/QuestionAnswerOutlined';
 import Collection from '@mui/icons-material/GridViewOutlined';
 import Launch from '@mui/icons-material/OpenInNewOutlined';
+import Cart from '@mui/icons-material/ShoppingCartOutlined';
+import AccountBalanceWallet from '@mui/icons-material/AccountBalanceWalletOutlined';
 
 const staff = ['admin', 'salesperson'];
 const item = (label, path, icon, roles, aliases = []) => ({ label, path, icon, roles, aliases });
 export const navigation = [
+  { label: 'Dealer portal', items: [item('Dashboard', '/dealer/dashboard', Dashboard, ['dealer']),item('Dealer Products', '/dealer/products', Products, ['dealer']),item('My Cart', '/dealer/cart', Cart, ['dealer']),item('Place Order', '/dealer/checkout', Cart, ['dealer']),item('My Orders', '/dealer/orders', Receipt, ['dealer']),item('Quotations', '/dealer/quotations', Receipt, ['dealer']),item('My Invoices', '/dealer/invoices', Receipt, ['dealer']),item('Payments', '/dealer/my-payments', Payment, ['dealer']),item('Outstanding Ledger', '/dealer/ledger', AccountBalanceWallet, ['dealer']),item('My Profile', '/dealer/profile', People, ['dealer']),item('Dealer Orders', '/dealer/orders/manage', Receipt, ['admin']),item('Dealer Payments', '/dealer/payments', Payment, ['admin']),item('Dealer Reports', '/dealer/reports', Accounts, ['admin'])] },
   { label: 'Main', items: [item('Dashboard', '/dashboard', Dashboard, staff)] },
   { label: 'Billing & transactions', items: [
     item('Sales & billing', '/billing', Receipt, staff, ['/sales/']),

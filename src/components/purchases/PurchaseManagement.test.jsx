@@ -15,6 +15,13 @@ test('purchase lists use the same colored payment badges as sales',async()=>{
  expect(screen.queryByText('partially_paid')).not.toBeInTheDocument();
 });
 
+test('purchase invoice row menu exposes posted invoice management actions',async()=>{
+ api.get.mockImplementation(url=>Promise.resolve({data:url.endsWith('/purchases')?{items:[{id:12,invoice_number:'AA-P0101',supplier_invoice_number:'SUP-41',store_name:'Mahua',supplier_name:'Supplier',invoice_date:'2026-10-28',status:'posted',payment_status:'unpaid',total:'200.00'}]}:url.endsWith('/reports')?{summary:{},bySupplier:[],byStore:[]}:[]}));
+ render(<MemoryRouter><PurchaseManagement/></MemoryRouter>);
+ fireEvent.click(await screen.findByRole('button',{name:'Actions for AA-P0101'}));
+ for(const label of ['View Invoice','Edit Invoice','Print Invoice','Download PDF','Delete Duplicate Invoice','View History'])expect(screen.getByRole('menuitem',{name:new RegExp(label)})).toBeInTheDocument();
+});
+
 test('posting a purchase requires confirmation and retains the existing endpoint', async () => {
   const purchase = { id: 7, store_id: 1, status: 'draft', invoice_number: 'PUR-7', store_name: 'Mahua', items: [], receipts: [], payments: [] };
   api.get.mockImplementation((url) => Promise.resolve({ data: url.endsWith('/purchases/7') ? purchase : [] }));

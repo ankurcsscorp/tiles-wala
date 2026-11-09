@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Avatar, Box, Button, Collapse, Drawer, IconButton, List, ListItemButton, ListItemIcon, ListItemText, Menu, MenuItem, TextField, ThemeProvider, Tooltip, Typography, useMediaQuery } from '@mui/material';
+import { Avatar, Badge, Box, Button, Collapse, Drawer, IconButton, List, ListItemButton, ListItemIcon, ListItemText, Menu, MenuItem, TextField, ThemeProvider, Tooltip, Typography, useMediaQuery } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import ChevronLeft from '@mui/icons-material/ChevronLeft';
 import ExpandMore from '@mui/icons-material/ExpandMore';
@@ -9,10 +9,12 @@ import { useAuth } from '../../context/AuthContext';
 import { useStores } from '../../context/StoreContext';
 import { isActiveItem, navigationForRole, pageTitle } from './navigation';
 import theme from './businessTheme';
+import { useDealerCart } from '../../context/DealerCartContext';
 import './BusinessShell.css';
 
 export default function BusinessShell({ children }) {
   const { user, logout } = useAuth();
+  const { itemCount } = useDealerCart();
   const { stores, selectedStoreId, selectStore, loading } = useStores();
   const { pathname } = useLocation();
   const navigate = useNavigate();
@@ -24,6 +26,7 @@ export default function BusinessShell({ children }) {
   const [accountAnchor, setAccountAnchor] = useState(null);
   const role = user?.userType?.toLowerCase();
   const groups = navigationForRole(role,user?.permissions);
+  const useAccountNameWithoutStore = ['dealer', 'tile mistire'].includes(role);
   const activeGroup = groups.find((group) => group.items.some((item) => isActiveItem(item, pathname)))?.label;
   const rail = !overlay && (!desktop || collapsed);
   const width = rail ? 76 : 260;
@@ -59,8 +62,8 @@ export default function BusinessShell({ children }) {
             return <Tooltip key={item.path} title={compact ? item.label : ''} placement="right">
               <ListItemButton component={external ? 'a' : Link} {...(external ? { href: item.path, target: '_blank', rel: 'noopener noreferrer' } : { to: item.path })}
                 selected={active} aria-current={active ? 'page' : undefined} aria-label={item.label} onClick={() => setMobileOpen(false)} className="sidebar-link">
-                <ListItemIcon><Icon fontSize="small" /></ListItemIcon>
-                {!compact && <ListItemText primary={item.label} slotProps={{primary:{ fontSize: '.83rem', fontWeight: active ? 650 : 500 }}} />}
+                <ListItemIcon>{item.path==='/dealer/cart'?<Badge color="secondary" badgeContent={itemCount} max={99}><Icon fontSize="small" /></Badge>:<Icon fontSize="small" />}</ListItemIcon>
+                {!compact && <ListItemText primary={item.path==='/dealer/cart'&&itemCount?`${item.label} (${itemCount})`:item.label} slotProps={{primary:{ fontSize: '.83rem', fontWeight: active ? 650 : 500 }}} />}
               </ListItemButton>
             </Tooltip>;
           })}</List>
@@ -81,9 +84,9 @@ export default function BusinessShell({ children }) {
           <IconButton onClick={toggleSidebar} aria-label={overlay || !desktop ? 'Open navigation' : collapsed ? 'Expand sidebar' : 'Collapse sidebar'} aria-expanded={overlay || !desktop ? mobileOpen : !collapsed}><MenuIcon /></IconButton>
           <Box className="header-page"><Typography variant="caption" color="text.secondary">Workspace</Typography><Typography component="h1" fontWeight={700}>{pageTitle(pathname)}</Typography></Box>
           <Box className="header-store">
-            {stores.length > 1 ? <TextField select label="Active store" value={activeStore ? String(selectedStoreId) : ''} disabled={loading} onChange={(event) => selectStore(event.target.value)} fullWidth>
+            {stores.length > 1 && (activeStore || !useAccountNameWithoutStore) ? <TextField select label="Active store" value={activeStore ? String(selectedStoreId) : ''} disabled={loading} onChange={(event) => selectStore(event.target.value)} fullWidth>
               {stores.map((store) => <MenuItem key={store.id} value={String(store.id)}>{store.name}</MenuItem>)}
-            </TextField> : <Typography variant="body2" title={activeStore?.name}>{loading ? 'Loading stores…' : activeStore?.name || 'No active store'}</Typography>}
+            </TextField> : <Typography variant="body2" title={activeStore?.name || (useAccountNameWithoutStore ? user?.name : undefined)}>{loading ? 'Loading stores…' : activeStore?.name || (useAccountNameWithoutStore ? user?.name : 'No active store')}</Typography>}
           </Box>
           <Tooltip title="Account"><IconButton aria-label="Open account menu" aria-controls={accountAnchor ? 'account-menu' : undefined} aria-haspopup="true" aria-expanded={Boolean(accountAnchor)} onClick={(event) => setAccountAnchor(event.currentTarget)}><Avatar sx={{ width: 34, height: 34, bgcolor: 'primary.main', fontSize: '.9rem' }}>{(user?.name || user?.mobile || 'U').slice(0, 1).toUpperCase()}</Avatar></IconButton></Tooltip>
           <Menu id="account-menu" anchorEl={accountAnchor} open={Boolean(accountAnchor)} onClose={() => setAccountAnchor(null)}>

@@ -11,6 +11,7 @@ const INITIAL_FORM_DATA = {
   userType: "",
   areaLocation: "",
   adminKey: "",
+  dealerCode: "",
 };
 
 const MISTIRI_USER_TYPES = ["Tile Mistire", "Plumber Mistiri"];
@@ -69,7 +70,7 @@ const Auth = ({
         newErrors.userType = "User type is required";
       }
       if (
-        MISTIRI_USER_TYPES.includes(formData.userType) &&
+        (MISTIRI_USER_TYPES.includes(formData.userType) || formData.userType === "Dealer") &&
         !formData.areaLocation.trim()
       ) {
         newErrors.areaLocation = "Area/Location is required";
@@ -78,6 +79,9 @@ const Auth = ({
       }
       if (formData.userType === "Admin" && !formData.adminKey.trim()) {
         newErrors.adminKey = "Admin key is required";
+      }
+      if (formData.userType === "Dealer" && !formData.dealerCode.trim()) {
+        newErrors.dealerCode = "Dealer code is required";
       }
     }
 
@@ -108,8 +112,14 @@ const Auth = ({
               ...(MISTIRI_USER_TYPES.includes(formData.userType)
                 ? { areaLocation: formData.areaLocation.trim() }
                 : {}),
+              ...(formData.userType === "Dealer"
+                ? { areaLocation: formData.areaLocation.trim() }
+                : {}),
               ...(formData.userType === "Admin"
                 ? { adminKey: formData.adminKey }
+                : {}),
+              ...(formData.userType === "Dealer"
+                ? { dealerCode: formData.dealerCode }
                 : {}),
             },
             { persistAuth: typeof onSignupSuccess !== "function" }
@@ -234,16 +244,18 @@ const Auth = ({
                   required
                 >
                   <option value="">Select user type</option>
-                  {(allowedUserTypes || ["Admin", "Salesperson", "Tile Mistire", "Plumber Mistiri"]).map((type) => <option key={type} value={type}>{type === "Tile Mistire" ? "Tiles Misti" : type}</option>)}
+                  {(allowedUserTypes || ["Admin", "Salesperson", "Tile Mistire", "Plumber Mistiri", "Dealer"]).map((type) => <option key={type} value={type}>{type === "Tile Mistire" ? "Tiles Misti" : type}</option>)}
                 </select>
                 {errors.userType && (
                   <span className="error">{errors.userType}</span>
                 )}
               </div>
 
-              {MISTIRI_USER_TYPES.includes(formData.userType) && (
+              {(MISTIRI_USER_TYPES.includes(formData.userType) || formData.userType === "Dealer") && (
                 <div className="form-group">
-                  <label htmlFor="auth-area-location">Area/Location</label>
+                  <label htmlFor="auth-area-location">
+                    {formData.userType === "Dealer" ? "Dealer Location" : "Area/Location"}
+                  </label>
                   <input
                     id="auth-area-location"
                     type="text"
@@ -252,7 +264,7 @@ const Auth = ({
                     maxLength={200}
                     value={formData.areaLocation}
                     onChange={handleChange}
-                    placeholder="Enter area or location"
+                    placeholder={formData.userType === "Dealer" ? "Enter dealer location" : "Enter area or location"}
                     required
                   />
                   {errors.areaLocation && (
@@ -276,6 +288,25 @@ const Auth = ({
                   />
                   {errors.adminKey && (
                     <span className="error">{errors.adminKey}</span>
+                  )}
+                </div>
+              )}
+
+              {formData.userType === "Dealer" && (
+                <div className="form-group">
+                  <label htmlFor="auth-dealer-code">Dealer Code</label>
+                  <input
+                    id="auth-dealer-code"
+                    type="password"
+                    name="dealerCode"
+                    autoComplete="off"
+                    value={formData.dealerCode}
+                    onChange={handleChange}
+                    placeholder="Enter dealer code"
+                    required
+                  />
+                  {errors.dealerCode && (
+                    <span className="error">{errors.dealerCode}</span>
                   )}
                 </div>
               )}

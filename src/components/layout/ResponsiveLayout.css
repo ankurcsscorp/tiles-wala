@@ -15,6 +15,13 @@
   .ui-picker > .MuiButton-root, .ui-picker > .MuiAutocomplete-root { width: 100%; }
 }
 @media print { .ui-table-scroll { overflow: visible; } .ui-table-scroll > table { min-width: 0; } }
+@media (max-width:599px) {
+  .MuiDialog-root .MuiDialog-paper:not(.MuiDialog-paperFullScreen) { width: calc(100% - 16px); max-width: none; max-height: calc(100% - 16px); margin: 8px; }
+  .MuiDialog-root .MuiDialogTitle-root { padding: 16px; overflow-wrap: anywhere; }
+  .MuiDialog-root .MuiDialogContent-root { padding: 12px 16px; overscroll-behavior: contain; }
+  .MuiDialog-root .MuiDialogActions-root { padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); flex-wrap: wrap; }
+  .MuiDialog-root .MuiDialogActions-root > .MuiButton-root { min-height: 44px; }
+}
 .MuiStack-root.finance-filters, .MuiStack-root.payment-filters, .MuiStack-root.transfer-filters, .MuiStack-root.purchase-filters {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: 16px; align-items: start;
 }

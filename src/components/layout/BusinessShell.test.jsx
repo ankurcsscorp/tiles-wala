@@ -52,6 +52,17 @@ test('non-staff roles do not see protected billing modules', () => {
   expect(screen.queryByRole('link', { name: 'Customers & ledgers' })).not.toBeInTheDocument();
 });
 
+test('dealers receive catalog and cart navigation without staff or admin links',()=>{
+ renderShell('dealer','/dealer/products');
+ expect(screen.getByRole('link',{name:'Dealer Products'})).toHaveAttribute('aria-current','page');
+ expect(screen.getByRole('link',{name:'My Cart'})).toBeInTheDocument();
+ expect(screen.getByRole('link',{name:'Dashboard'})).toHaveAttribute('href','/dealer/dashboard');
+ expect(screen.getByRole('link',{name:'Outstanding Ledger'})).toBeInTheDocument();
+ expect(screen.queryByRole('link',{name:'Dealer Reports'})).not.toBeInTheDocument();
+ expect(screen.queryByRole('link',{name:'Sales & billing'})).not.toBeInTheDocument();
+ expect(screen.queryByRole('link',{name:'Products & units'})).not.toBeInTheDocument();
+});
+
 test('store changes use the shared selection handler and only supplied stores are shown', () => {
   renderShell();
   fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Active store' }));

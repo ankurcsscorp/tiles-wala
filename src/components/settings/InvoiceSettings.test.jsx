@@ -46,11 +46,11 @@ test('bank, UPI and multiline terms save per store and persist after refresh',as
  let saved=settings;
  api.put.mockImplementation(async(_,body)=>{saved={...settings,...body};return {data:{data:saved}};});
  const view=render(page());await screen.findByRole('radio',{name:'GST Billing'});
- for(const [label,value] of [['Account holder name','Demo Store'],['Account number','001234567890'],['Bank name','Demo Bank'],['Branch','Main Branch'],['IFSC code','abcd0123456'],['UPI ID','demo@bank'],['Terms and conditions','1. Saved term\n2. Another saved term']])fireEvent.change(screen.getByLabelText(label),{target:{value}});
+ for(const [label,value] of [['Account holder name','Demo Store'],['Account number','001234567890'],['Bank name','Demo Bank'],['Branch','Main Branch'],['IFSC code','abcd0123456'],['Receiving UPI ID','demo@bank'],['Terms and conditions','1. Saved term\n2. Another saved term']])fireEvent.change(screen.getByLabelText(label),{target:{value}});
  fireEvent.click(screen.getByRole('button',{name:'Save Settings'}));await screen.findByText(/Billing settings saved/);
  expect(api.put).toHaveBeenCalledWith(expect.stringContaining('/33/'),{termsAndConditions:'1. Saved term\n2. Another saved term',paymentDetails:{accountName:'Demo Store',accountNumber:'001234567890',bankName:'Demo Bank',branch:'Main Branch',ifscCode:'ABCD0123456',upiId:'demo@bank'}});
  view.unmount();api.get.mockResolvedValue({data:{data:saved}});render(page());await screen.findByRole('radio',{name:'GST Billing'});
- expect(screen.getByLabelText('Account number')).toHaveValue('001234567890');expect(screen.getByLabelText('UPI ID')).toHaveValue('demo@bank');expect(screen.getByLabelText('Terms and conditions')).toHaveValue('1. Saved term\n2. Another saved term');
+ expect(screen.getByLabelText('Account number')).toHaveValue('001234567890');expect(screen.getByLabelText('Receiving UPI ID')).toHaveValue('demo@bank');expect(screen.getByLabelText('Terms and conditions')).toHaveValue('1. Saved term\n2. Another saved term');
 });
 
 test('footer-only changes can save without altering an incomplete GST configuration',async()=>{
@@ -67,5 +67,5 @@ test('payment fields honor store permissions and show validation errors from the
  const view=render(page());await screen.findByLabelText('Account number');fireEvent.change(screen.getByLabelText('Account number'),{target:{value:'1234567890'}});
  fireEvent.click(screen.getByRole('button',{name:'Save Settings'}));expect(await screen.findByText(/Bank details require account holder/)).toBeInTheDocument();
  useStores.mockReturnValue({stores:[{id:2,name:'Other'}],selectedStoreId:'2',selectStore:jest.fn()});api.get.mockResolvedValue({data:{data:{...settings,storeId:2,canEdit:false}}});view.rerender(page());await screen.findByText(/Only store owners/);
- expect(screen.getByLabelText('Account number')).toBeDisabled();expect(screen.getByLabelText('UPI ID')).toBeDisabled();expect(screen.getByLabelText('Terms and conditions')).toBeDisabled();expect(screen.getByLabelText('Account number')).toHaveValue('');
+ expect(screen.getByLabelText('Account number')).toBeDisabled();expect(screen.getByLabelText('Receiving UPI ID')).toBeDisabled();expect(screen.getByLabelText('Terms and conditions')).toBeDisabled();expect(screen.getByLabelText('Account number')).toHaveValue('');
 });

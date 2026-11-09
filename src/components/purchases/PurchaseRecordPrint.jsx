@@ -1,81 +1,92 @@
 import React from 'react';
-import { invoiceAddress, invoiceDate, invoiceMoney, invoiceQuantity } from '../../utils/invoiceFormat';
-import { InvoiceDocument, InvoiceHeader, InvoiceDetails, InvoiceDetail, InvoiceAmountWords, InvoiceTotalRow, InvoiceSignatures } from '../invoices/InvoiceDocument';
+import { invoiceAddress, invoiceDate, invoiceQuantity } from '../../utils/invoiceFormat';
+import { InvoiceDocument } from '../invoices/InvoiceDocument';
+
+const clean = value => typeof value === 'string' || typeof value === 'number' ? String(value).trim() : '';
+const money = value => {
+  const match = String(value ?? '').trim().match(/^(-?)(\d+)(?:\.(\d+))?$/);
+  if (!match) return '—';
+  const whole = new Intl.NumberFormat('en-IN').format(window.BigInt(match[2]));
+  const fraction = (match[3] || '').padEnd(2, '0').slice(0, 2);
+  return `${match[1] ? '−' : ''}₹${whole}.${fraction}`;
+};
+const TotalRow = ({ label, value, emphasis = false }) => <div className={emphasis ? 'purchase-record-grand' : ''}><span>{label}</span><strong>{money(value)}</strong></div>;
 
 export default function PurchaseRecordPrint({ purchase }) {
-  // Historical records retain their existing renderer and its original data semantics.
-  if (!purchase?.invoice_layout) return null;
-  const simple = purchase.invoice_layout === 'SIMPLE_LAYOUT';
-  const supplier = purchase.supplier_details_snapshot || (purchase.status === 'draft' ? purchase.supplier_current_details : null);
+  if (!purchase) return null;
+  const supplier = purchase.supplier_details_snapshot || (purchase.status === 'draft' ? purchase.supplier_current_details : null) || {};
+  const supplierName = clean(supplier.name) || 'Supplier details unavailable';
+  const storeName = clean(purchase.store_name_snapshot) || clean(purchase.store_name) || 'Store';
+  const storeAddress = invoiceAddress(purchase.store_address_snapshot);
+  const supplierAddress = invoiceAddress(supplier);
   const gst = purchase.supplier_document_type === 'GST_TAX_INVOICE';
   const items = purchase.items || [];
-  const documentTitle = { GST_TAX_INVOICE: 'GST Tax Invoice', BILL_OF_SUPPLY: 'Bill of Supply', NON_GST_COMMERCIAL: 'Commercial invoice' }[purchase.supplier_document_type] || 'Supplier invoice';
-  const widths = simple ? [44, 12, 12, 16, 16] : [27, 9, 10, 9, 12, 10, 11, 12];
-  const adjustments = [['Discount', purchase.discount_total], ['Freight', purchase.freight_amount], ['Additional charges', purchase.additional_charges], ['Round-off', purchase.round_off]];
+  const statusTitle = purchase.status === 'reversed' ? 'REVERSED PURCHASE RECORD' : purchase.status === 'cancelled' ? 'CANCELLED PURCHASE RECORD' : purchase.status === 'draft' ? 'DRAFT PURCHASE RECORD' : 'INTERNAL PURCHASE RECORD';
+  const optionalAdjustments = [['Discount', purchase.discount_total], ['GST', purchase.tax_total], ['Freight', purchase.freight_amount], ['Other charges', purchase.additional_charges], ['Round-off', purchase.round_off]];
 
-  return <InvoiceDocument className="purchase-record-print" label="Printable purchase record">
-    <InvoiceHeader name={purchase.store_name_snapshot || purchase.store_name} address={purchase.store_address_snapshot}
-      phone={purchase.store_phone_snapshot} email={purchase.store_email_snapshot} gstin={gst ? purchase.store_tax_id_snapshot : null}
-      title={purchase.status === 'reversed' ? 'REVERSED PURCHASE RECORD' : purchase.status === 'draft' ? 'DRAFT PURCHASE RECORD' : 'Purchase Record'} copy="Internal purchase record" />
-    <section className="invoice-document-parties">
-      <div><h2>Supplier / purchased from</h2><strong className="invoice-document-party-name">{supplier?.name || 'Historical supplier details unavailable'}</strong>
-        {invoiceAddress(supplier).map((line, index) => <div key={index}>{line}</div>)}
-        {(supplier?.phone || supplier?.mobile) && <div>Phone: {supplier.phone || supplier.mobile}</div>}
-        {supplier?.email && <div>Email: {supplier.email}</div>}
-        {supplier?.gstin && <div>Supplier GSTIN: {supplier.gstin}</div>}
+  return <InvoiceDocument className="purchase-record-print" label="Printable internal purchase record">
+    <header className="purchase-record-header">
+      <div className="purchase-record-store">
+        {clean(purchase.store_logo_snapshot) && <img src={purchase.store_logo_snapshot} alt={`${storeName} logo`} />}
+        <div className="purchase-record-store-info">
+          <h1>{storeName}</h1>
+          {storeAddress.map((line, index) => <span key={`address-${index}`}>{line}</span>)}
+          {clean(purchase.store_phone_snapshot) && <span>Phone: {clean(purchase.store_phone_snapshot)}</span>}
+          {clean(purchase.store_email_snapshot) && <span>{clean(purchase.store_email_snapshot)}</span>}
+          {clean(purchase.store_tax_id_snapshot) && <span>GSTIN: {clean(purchase.store_tax_id_snapshot)}</span>}
+        </div>
       </div>
-      <div><h2>Purchase details</h2><InvoiceDetails>
-        <InvoiceDetail label="Purchase no.">{purchase.invoice_number}</InvoiceDetail>
-        <InvoiceDetail label="Invoice date">{invoiceDate(purchase.invoice_date)}</InvoiceDetail>
-        {purchase.due_date && <InvoiceDetail label="Due date">{invoiceDate(purchase.due_date)}</InvoiceDetail>}
-        <InvoiceDetail label="Supplier invoice">{purchase.supplier_invoice_number}</InvoiceDetail>
-        <InvoiceDetail label="Status">{purchase.status}</InvoiceDetail>
-      </InvoiceDetails></div>
-    </section>
-    <p className="invoice-document-disclosure">Supplier document: {documentTitle}</p>
-    {purchase.supplier_tax_reason && <p className="invoice-document-disclosure">Supplier document basis: {purchase.supplier_tax_reason}</p>}
+      <div className="purchase-record-title"><strong>{statusTitle}</strong><span>Purchase reference: {clean(purchase.invoice_number) || '—'}</span><span>Status: {clean(purchase.status) || '—'}</span></div>
+    </header>
 
-    <table className="invoice-document-items" aria-label="Purchase products">
-      <colgroup>{widths.map((width, index) => <col key={index} style={{ width: `${width}%` }} />)}</colgroup>
-      <thead><tr><th className="invoice-cell-product">Product</th>{!simple && <th className="invoice-cell-center">HSN</th>}<th>Quantity</th><th className="invoice-cell-center">Unit</th><th>Rate</th>{!simple && <><th>Discount</th><th>Taxable</th></>}<th>Line Total</th></tr></thead>
-      <tbody>{items.map((item, index) => <tr key={item.id || index}>
-        <td className="invoice-cell-product"><strong>{item.product_name_snapshot || item.product_name}</strong>{item.sku && <small>SKU: {item.sku}</small>}{item.product_snapshot?.tileSize && <small>{item.product_snapshot.tileSize}</small>}{item.description && item.description !== item.product_snapshot?.tileSize && <small>{item.description}</small>}</td>
-        {!simple && <td className="invoice-cell-center">{item.product_snapshot?.hsnCode || '—'}</td>}
-        <td>{invoiceQuantity(item.quantity)}</td><td className="invoice-cell-center">{item.unit_name || item.unit_code || '—'}</td><td>{invoiceMoney(item.unit_price, { rate: true })}</td>
-        {!simple && <><td>{invoiceMoney(item.discount_amount)}</td><td>{invoiceMoney(item.taxable_value)}</td></>}
-        <td><strong>{invoiceMoney(simple ? item.taxable_value : item.line_total)}</strong></td>
-      </tr>)}</tbody>
+    <section className="purchase-record-parties">
+      <div><h2>Supplier details</h2><strong>{supplierName}</strong>
+        {supplierAddress.map((line, index) => <span key={`supplier-address-${index}`}>{line}</span>)}
+        {clean(supplier.gstin || supplier.tax_id) && <span>GSTIN: {clean(supplier.gstin || supplier.tax_id)}</span>}
+        {clean(supplier.phone || supplier.mobile) && <span>Phone: {clean(supplier.phone || supplier.mobile)}</span>}
+        <span>Supplier invoice: {clean(purchase.supplier_invoice_number) || '—'}</span>
+      </div>
+      <div><h2>Purchase details</h2>
+        <span><b>Internal reference:</b> {clean(purchase.invoice_number) || '—'}</span>
+        <span><b>Purchase date:</b> {invoiceDate(purchase.invoice_date)}</span>
+        <span><b>Supplier invoice date:</b> {invoiceDate(purchase.supplier_invoice_date || purchase.invoice_date)}</span>
+        <span><b>Store / warehouse:</b> {clean(purchase.store_name_snapshot) || clean(purchase.store_name) || '—'}</span>
+      </div>
+    </section>
+
+    <p className="purchase-record-disclosure">Supplier document: {{ GST_TAX_INVOICE: 'GST Tax Invoice', BILL_OF_SUPPLY: 'Bill of Supply', NON_GST_COMMERCIAL: 'Commercial invoice' }[purchase.supplier_document_type] || 'Supplier invoice'}{purchase.supplier_tax_reason ? ` · ${clean(purchase.supplier_tax_reason)}` : ''}</p>
+
+    <table className="purchase-record-items" aria-label="Purchase products">
+      <colgroup><col style={{width:'4%'}}/><col style={{width:'35%'}}/><col style={{width:'10%'}}/><col style={{width:'15%'}}/><col style={{width:'12%'}}/><col style={{width:'12%'}}/><col style={{width:'12%'}}/></colgroup>
+      <thead><tr><th>#</th><th>Product / description</th><th>HSN</th><th>Quantity / unit</th><th>Purchase rate</th><th>Tax</th><th>Amount</th></tr></thead>
+      <tbody>{items.map((item, index) => {
+        const name = clean(item.product_name_snapshot || item.product_name) || 'Product';
+        const size = clean(item.product_snapshot?.tileSize);
+        const description = clean(item.description);
+        return <tr key={item.id || index}>
+          <td>{index + 1}</td>
+          <td className="purchase-record-product"><strong>{name}</strong>{item.sku && <small>SKU: {clean(item.sku)}</small>}{size && <small>{size}</small>}{description && description !== size && description !== name && <small>{description}</small>}</td>
+          <td>{clean(item.product_snapshot?.hsnCode) || '—'}</td>
+          <td className="purchase-record-quantity">{invoiceQuantity(item.quantity)} {clean(item.unit_name || item.unit_code) || '—'}</td>
+          <td className="purchase-record-rate">{money(item.unit_price)}</td>
+          <td className="purchase-record-tax"><span>{invoiceQuantity(item.tax_rate)}%</span><small>{money(item.tax_amount)}</small></td>
+          <td className="purchase-record-amount"><strong>{money(item.line_total)}</strong></td>
+        </tr>;
+      })}</tbody>
     </table>
-    <div className="invoice-document-item-count">{items.length} {items.length === 1 ? 'item' : 'items'}{gst && simple ? ' · Line totals exclude supplier tax; see the tax details below.' : ''}</div>
+    <div className="purchase-record-item-count">{items.length} {items.length === 1 ? 'item' : 'items'}</div>
 
-    {gst && <section className="invoice-document-section"><h2>Supplier GST details</h2>
-      <table className="invoice-document-items" aria-label="Supplier GST disclosures"><colgroup>{[27, 10, 15, 9, 13, 13, 13].map((width, index) => <col key={index} style={{width:`${width}%`}}/>)}</colgroup>
-        <thead><tr><th className="invoice-cell-product">Product</th><th className="invoice-cell-center">HSN</th><th>Taxable</th><th>GST rate</th><th>CGST</th><th>SGST</th><th>IGST</th></tr></thead>
-        <tbody>{items.map((item, index) => <tr key={item.id || index}><td className="invoice-cell-product">{item.product_name_snapshot || item.product_name}</td><td className="invoice-cell-center">{item.product_snapshot?.hsnCode || '—'}</td><td>{invoiceMoney(item.taxable_value)}</td><td>{invoiceQuantity(item.tax_rate)}%</td><td>{invoiceMoney(item.cgst_amount)}</td><td>{invoiceMoney(item.sgst_amount)}</td><td>{invoiceMoney(item.igst_amount)}</td></tr>)}</tbody>
-      </table>
-    </section>}
-
-    <section className="invoice-document-summary">
-      <div><InvoiceAmountWords total={purchase.total} />
-        {gst && <div className="invoice-document-tax"><h2>Tax summary</h2><InvoiceTotalRow label="CGST" value={purchase.cgst_total} /><InvoiceTotalRow label="SGST" value={purchase.sgst_total} /><InvoiceTotalRow label="IGST" value={purchase.igst_total} /></div>}
+    <section className="purchase-record-summary">
+      <div>{gst && <div className="purchase-record-tax-breakup"><h2>GST breakup</h2><TotalRow label="CGST" value={purchase.cgst_total}/><TotalRow label="SGST" value={purchase.sgst_total}/><TotalRow label="IGST" value={purchase.igst_total}/></div>}
+        {purchase.notes && <div className="purchase-record-notes"><h2>Notes</h2><p>{clean(purchase.notes)}</p></div>}
       </div>
-      <div className="invoice-document-totals">
-        <InvoiceTotalRow label="Subtotal" value={purchase.subtotal} />
-        {adjustments.filter(([, value]) => Number(value)).map(([label, value]) => <InvoiceTotalRow key={label} label={label} value={value} />)}
-        {gst && <InvoiceTotalRow label="Total GST" value={purchase.tax_total} />}
-        <InvoiceTotalRow label="Grand Total" value={purchase.total} emphasis />
-        <InvoiceTotalRow label="Paid" value={purchase.paid_amount} />
-        {Number(purchase.returned_total) > 0 && <InvoiceTotalRow label="Return credit" value={purchase.returned_total} />}
-        <InvoiceTotalRow label="Balance Due" value={purchase.outstanding_balance} />
+      <div className="purchase-record-totals"><TotalRow label="Subtotal" value={purchase.subtotal}/>
+        {optionalAdjustments.filter(([, value]) => Number(value)).map(([label, value]) => <TotalRow key={label} label={label} value={value}/>)}
+        <TotalRow label="Grand Total" value={purchase.total} emphasis/>
+        <TotalRow label="Amount Paid" value={purchase.paid_amount}/>
+        <TotalRow label="Outstanding" value={purchase.outstanding_balance} emphasis/>
       </div>
     </section>
-    {(purchase.receipts || []).length > 0 && <section className="invoice-document-section"><h2>Goods receipts</h2>{purchase.receipts.map(receipt => <p key={receipt.id}>{receipt.receipt_number} · {invoiceDate(receipt.receipt_date)} · {receipt.status}</p>)}</section>}
-    {(purchase.payments || []).length > 0 && <section className="invoice-document-section"><h2>Supplier payments</h2>
-      <table className="invoice-document-items" aria-label="Supplier payments"><colgroup><col style={{width:'22%'}}/><col style={{width:'22%'}}/><col style={{width:'28%'}}/><col style={{width:'28%'}}/></colgroup><thead><tr><th className="invoice-cell-product">Date</th><th className="invoice-cell-product">Payment no.</th><th className="invoice-cell-product">Method / reference</th><th>Amount allocated</th></tr></thead>
-        <tbody>{purchase.payments.map((payment, index) => <tr key={payment.id || index}><td className="invoice-cell-product">{invoiceDate(payment.payment_date)}</td><td className="invoice-cell-product">{payment.payment_number || '—'}</td><td className="invoice-cell-product">{payment.payment_method || '—'}{payment.reference && <small>{payment.reference}</small>}</td><td>{invoiceMoney(payment.allocated_amount)}</td></tr>)}</tbody>
-      </table>
-    </section>}
-    {purchase.notes && <section className="invoice-document-section"><h2>Notes</h2><p className="invoice-document-multiline">{purchase.notes}</p></section>}
-    <InvoiceSignatures purchase />
+    <footer className="purchase-record-footer">This is an internal purchase record based on supplier invoice details entered in Tiles Wala. It is not a supplier-issued tax invoice.</footer>
   </InvoiceDocument>;
 }

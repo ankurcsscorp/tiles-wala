@@ -5,7 +5,7 @@ import api from "../../api";
 const API = "http://localhost:4000/api/tiles/customers";
 
 /** Reusable billing control: the parent owns the invoice draft; add-customer never resets it. */
-export default function CustomerSearch({ value, onSelect, onAddNew, label = "Customer" }) {
+export default function CustomerSearch({ value, onSelect, onAddNew, label = "Customer", disabled = false }) {
   const [query, setQuery] = useState("");
   const [options, setOptions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -21,11 +21,11 @@ export default function CustomerSearch({ value, onSelect, onAddNew, label = "Cus
     return () => { active = false; clearTimeout(timer); };
   }, [query]);
   return <Stack useFlexGap className="ui-picker" direction={{ xs: "column", sm: "row" }} spacing={1}>
-    <Autocomplete fullWidth value={value || null} options={options} loading={loading} inputValue={query || (value ? `${value.name}${value.phone ? ` · ${value.phone}` : ""}` : "")} filterOptions={(available)=>available}
+    <Autocomplete fullWidth disabled={disabled} value={value || null} options={options} loading={loading} inputValue={query || (value ? `${value.name}${value.phone ? ` · ${value.phone}` : ""}` : "")} filterOptions={(available)=>available}
       getOptionLabel={(customer) => customer ? `${customer.name}${customer.phone ? ` · ${customer.phone}` : ""}` : ""}
       isOptionEqualToValue={(a,b) => String(a.id) === String(b.id)} onInputChange={(_, next) => setQuery(next)} onChange={(_, next) => onSelect?.(next)}
       renderInput={(params) => <TextField {...params} label={label} placeholder="Search name or mobile" />}
       noOptionsText={query.trim().length < 2 ? "Type at least 2 characters" : "No matching customers"} />
-    {onAddNew && <Button variant="outlined" onClick={onAddNew} sx={{ minWidth: { sm: 150 } }}>Add customer</Button>}
+    {onAddNew && <Button variant="outlined" disabled={disabled} onClick={onAddNew} sx={{ minWidth: { sm: 150 } }}>Add customer</Button>}
   </Stack>;
 }

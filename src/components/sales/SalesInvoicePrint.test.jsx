@@ -27,6 +27,11 @@ test('ambiguous historical zero-tax documents use a neutral title',()=>{
 test('GST format does not claim a tax-invoice title without a valid saved store GSTIN',()=>{
  render(<SalesInvoicePrint invoice={{...invoice,invoice_type:'GST',store_tax_id_snapshot:null}}/>);expect(screen.getByText('INVOICE')).toBeInTheDocument();expect(screen.queryByText('TAX INVOICE')).not.toBeInTheDocument();
 });
+test('prints only populated transport details compactly in Ship To',()=>{
+ render(<SalesInvoicePrint invoice={{...invoice,transport_mode_snapshot:'TOTO',vehicle_number:'BR31AB1234',driver_name:'Ramesh Kumar',driver_contact_number:'9876543210'}}/>);
+ expect(screen.queryByText('Self Pickup')).not.toBeInTheDocument();
+ expect(screen.getByRole('article')).toHaveTextContent('Transport: Toto');expect(screen.getByRole('article')).toHaveTextContent('Vehicle: BR31AB1234');expect(screen.getByRole('article')).toHaveTextContent('Driver: Ramesh Kumar');expect(screen.getByRole('article')).toHaveTextContent('Contact: 9876543210');
+});
 test('Simple Layout GST print retains HSN and tax disclosures from the saved invoice',()=>{
  render(<SalesInvoicePrint invoice={{...invoice,invoice_type:'GST',invoice_layout:'SIMPLE_LAYOUT',document_type:'GST_TAX_INVOICE',store_tax_id_snapshot:'10JNEPD0678B1ZL',tax_total:'1530.00',cgst_total:'765.00',sgst_total:'765.00'}}/>);
  expect(screen.getByText('TAX INVOICE')).toBeInTheDocument();expect(screen.getByRole('columnheader',{name:'HSN'})).toBeInTheDocument();expect(screen.getByText('CGST')).toBeInTheDocument();

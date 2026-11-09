@@ -44,8 +44,20 @@ test('an advance without outstanding invoices explains its customer credit in pa
 test('supplier payments retain manual allocation behavior',async()=>{
  render(<PaymentManagement/>);fireEvent.click(screen.getByRole('button',{name:'Supplier payment'}));fireEvent.click(screen.getByRole('button',{name:'Choose supplier'}));
  await screen.findByLabelText('Allocate to INV-OLD');fireEvent.change(screen.getByRole('spinbutton',{name:/Payment amount/}),{target:{value:'100'}});
- expect(screen.getByLabelText('Allocate to INV-OLD')).toHaveValue(null);expect(screen.queryByText(/automatically pays the oldest outstanding invoices/)).not.toBeInTheDocument();
- fireEvent.click(screen.getByRole('button',{name:'Save payment'}));await waitFor(()=>expect(api.post).toHaveBeenCalledWith(`${API}/supplier-payments`,expect.objectContaining({allocations:[]})));
+ expect(screen.getByLabelText('Allocate to INV-OLD')).toHaveValue(50.25);expect(screen.getByLabelText('Allocate to INV-NEW')).toHaveValue(49.75);expect(screen.getByText(/allocated to the oldest outstanding supplier invoices first/)).toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Save payment'}));await waitFor(()=>expect(api.post).toHaveBeenCalledWith(`${API}/supplier-payments`,expect.objectContaining({amount:'100',allocations:expect.arrayContaining([{invoiceId:'13',amount:'50.25'},{invoiceId:'12',amount:'49.75'}])})));
+});
+test('full supplier payment fills all outstanding bills and settles them oldest first',async()=>{
+ render(<PaymentManagement/>);fireEvent.click(screen.getByRole('button',{name:'Supplier payment'}));fireEvent.click(screen.getByRole('button',{name:'Choose supplier'}));await screen.findByLabelText('Allocate to INV-OLD');
+ fireEvent.click(screen.getByRole('checkbox',{name:/Full payment/}));expect(screen.getByRole('spinbutton',{name:/Payment amount/})).toHaveValue(150.35);
+ expect(screen.getByLabelText('Allocate to INV-OLD')).toHaveValue(50.25);expect(screen.getByLabelText('Allocate to INV-NEW')).toHaveValue(100.1);
+ fireEvent.click(screen.getByRole('button',{name:'Save payment'}));await waitFor(()=>expect(api.post).toHaveBeenCalledWith(`${API}/supplier-payments`,expect.objectContaining({amount:'150.35',allocations:expect.arrayContaining([{invoiceId:'13',amount:'50.25'},{invoiceId:'12',amount:'100.10'}])})));
+});
+test('supplier allocation list includes settled posted invoices but disables further allocation',async()=>{
+ const get=api.get.getMockImplementation();api.get.mockImplementation(url=>url.endsWith('/eligible-invoices')?Promise.resolve({data:[...invoices,{id:14,invoice_number:'INV-PAID',invoice_date:'2026-09-01',total:'75.00',previously_allocated:'75.00',outstanding:'0.00'}]}):get(url));
+ render(<PaymentManagement/>);fireEvent.click(screen.getByRole('button',{name:'Supplier payment'}));fireEvent.click(screen.getByRole('button',{name:'Choose supplier'}));
+ expect(await screen.findByText('INV-PAID')).toBeInTheDocument();expect(screen.getByText('Settled')).toBeInTheDocument();expect(screen.getByLabelText('Allocate to INV-PAID')).toBeDisabled();
+ expect(screen.getByText(/Showing all posted invoices for this supplier and store/)).toBeInTheDocument();
 });
 test('automatic allocations totaling 0.10 plus 0.20 allow saving a 0.30 receipt',async()=>{
  const get=api.get.getMockImplementation();api.get.mockImplementation(url=>url.endsWith('/eligible-invoices')?Promise.resolve({data:invoices.map(row=>({...row,total:row.id===13?'0.10':'0.20',outstanding:row.id===13?'0.10':'0.20'}))}):get(url));
