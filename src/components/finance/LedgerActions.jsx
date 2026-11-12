@@ -31,5 +31,5 @@ export default function LedgerActions({partyType,partyId,storeId,fromDate,toDate
    preview.focus();preview.print();
   }catch(e){preview.close();setError(await errorText(e));}finally{setBusy(false);}
  };
- return <Box className="ledger-actions"><Stack direction="row" useFlexGap sx={{gap:1,flexWrap:'wrap'}}><Button variant="outlined" disabled={!partyId||busy} onClick={print}>Print Ledger</Button><Button variant="contained" disabled={!partyId||busy} onClick={download}>{busy?'Preparing…':'Download PDF'}</Button></Stack>{error&&<Alert severity="error" sx={{mt:1}}>{error}</Alert>}</Box>;
+ return <Box className="ledger-actions"><Stack direction="row" useFlexGap sx={{gap:1,flexWrap:'nowrap',alignItems:'center',whiteSpace:'nowrap'}}><Button variant="outlined" sx={{flexShrink:0}} disabled={!partyId||busy} onClick={print}>Print Ledger</Button><Button variant="contained" sx={{flexShrink:0}} disabled={!partyId||busy} onClick={download}>{busy?'Preparing…':'Download PDF'}</Button></Stack>{error&&<Alert severity="error" sx={{mt:1}}>{error}</Alert>}</Box>;
 }

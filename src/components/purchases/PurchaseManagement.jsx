@@ -5,7 +5,7 @@ import PaymentStatusBadge from '../payments/PaymentStatusBadge';
 import useBillingSettings from '../../hooks/useBillingSettings';
 import {nonGstLineTotal,simpleInvoiceTotals,purchaseTaxBreakup} from '../../utils/invoiceMoney';
 import PurchaseRecordPrint from './PurchaseRecordPrint';
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Alert, Autocomplete, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Menu, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, Tooltip, Typography } from '@mui/material';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
@@ -18,6 +18,7 @@ import HistoryIcon from '@mui/icons-material/History';
 import api from "../../api";
 import { useStores } from "../../context/StoreContext";
 import SupplierSearch from "../suppliers/SupplierSearch";
+import AddItemsModal from "../products/AddItemsModal";
 import "./PurchaseManagement.css";
 
 const API="http://localhost:4000/api/tiles/purchases";const PRODUCT_API="http://localhost:4000/api/tiles/products";const PAYMENT_API="http://localhost:4000/api/tiles/payments";
@@ -32,6 +33,9 @@ export default function PurchaseManagement(){
   const {id}=useParams();const navigate=useNavigate();const {stores,selectedStoreId}=useStores();const [editingId,setEditingId]=useState(null);const activePurchaseId=id||editingId;
   const [mode,setMode]=useState(id?"detail":"list");const [list,setList]=useState([]);const [purchase,setPurchase]=useState(null);const [products,setProducts]=useState([]);
   const [storeId,setStoreId]=useState(selectedStoreId||"");const [supplier,setSupplier]=useState(null);const [productSearch,setProductSearch]=useState("");
+  const [addItemsOpen,setAddItemsOpen]=useState(false);
+  const addProductsRef=useRef(null);
+  useEffect(()=>{const receive=event=>{if(event.origin!==window.location.origin||event.data?.type!=='tiles-wala-product-created'||!event.data.product?.id)return;setAddItemsOpen(false);addProductsRef.current?.([event.data.product]);};window.addEventListener('message',receive);return()=>window.removeEventListener('message',receive);},[]);
   const [form,setForm]=useState({invoiceDate:today(),dueDate:"",supplierInvoiceNumber:"",freightAmount:"0.00",additionalCharges:"0.00",roundOff:"0.00",notes:"",items:[emptyLine()]});
   const [search,setSearch]=useState("");const [statusFilter,setStatusFilter]=useState("");const [tab,setTab]=useState("invoices");
   const [loading,setLoading]=useState(false);const [saving,setSaving]=useState(false);const [error,setError]=useState("");const [notice,setNotice]=useState("");
@@ -69,6 +73,8 @@ export default function PurchaseManagement(){
     let conversions=[];try{const response=await api.get(`${PRODUCT_API}/${product.id}/conversions`);conversions=response.data;}catch{}
     setForm(current=>({...current,items:current.items.map((line,i)=>i===index?{...line,productId:String(product.id),product,conversions,unitId:String(product.purchase_unit_id||product.base_unit_id),unitPrice:product.default_purchase_price??"",taxRate:form.supplierDocumentType&&form.supplierDocumentType!=='GST_TAX_INVOICE'?'0':product.tax_rate??""}:line)}));
   };
+  const addProductsToPurchase=async(selected)=>{for(const product of selected){let conversions=[];try{const response=await api.get(`${PRODUCT_API}/${product.id}/conversions`);conversions=response.data||[];}catch{}setForm(current=>{const existingIndex=current.items.findIndex(item=>item.productId===String(product.id));if(existingIndex>=0)return {...current,items:current.items.map((item,index)=>index===existingIndex?{...item,quantity:String(product.selectedQuantity||item.quantity||'1')}:item)};const line={...emptyLine(),productId:String(product.id),product,conversions,unitId:String(product.purchase_unit_id||product.base_unit_id),quantity:String(product.selectedQuantity||'1'),unitPrice:product.default_purchase_price??'',taxRate:current.supplierDocumentType&&current.supplierDocumentType!=='GST_TAX_INVOICE'?'0':product.tax_rate??''};const empty=current.items.findIndex(item=>!item.productId);return {...current,items:empty>=0?current.items.map((item,index)=>index===empty?line:item):[...current.items,line]};});}};
+  addProductsRef.current=addProductsToPurchase;
   const chooseUnit=async(index,unitId)=>{
     const line=form.items[index];updateLine(index,"unitId",unitId);if(!line.product||!unitId)return;
     try{const response=await api.get(`${PRODUCT_API}/${line.product.id}/price`,{params:{direction:"purchase",unitId}});updateLine(index,"unitPrice",response.data.price);}catch{updateLine(index,"unitPrice","");}
@@ -97,10 +103,10 @@ export default function PurchaseManagement(){
   if(loading&&!purchase&&mode!=="list")return <Box className="purchase-page purchase-loading"><CircularProgress/></Box>;
   const supplierGST=purchase?.supplier_details_snapshot||(purchase?.status==="draft"?purchase?.supplier_current_details:null);
   return <Box className="purchase-page">
-    <Stack useFlexGap className="purchase-heading" direction={{xs:"column",sm:"row"}} justifyContent="space-between" alignItems={{sm:"center"}} spacing={2}>
-      <Box><Typography variant="h4" fontWeight={700}>Purchases</Typography><Typography color="text.secondary">Supplier invoices, goods receipts and payments</Typography></Box>
-      {mode==="list"&&<Button variant="contained" onClick={()=>resetForm()}>New purchase</Button>}
-    </Stack>
+    <Box className="purchase-heading" sx={{display:"grid",gridTemplateColumns:{xs:"minmax(0,1fr)",sm:"minmax(0,1fr) auto"},alignItems:{sm:"center"},columnGap:3,rowGap:2}}>
+      <Box sx={{minWidth:0}}><Typography variant="h4" fontWeight={700}>Purchases</Typography><Typography color="text.secondary" sx={{overflowWrap:"anywhere"}}>Supplier invoices, goods receipts and payments</Typography></Box>
+      {mode==="list"&&<Button variant="contained" onClick={()=>resetForm()} sx={{justifySelf:{xs:"stretch",sm:"end"},minWidth:160,minHeight:48,whiteSpace:"nowrap"}}>New purchase</Button>}
+    </Box>
     {error&&<Alert severity="error" sx={{my:2}}>{error}</Alert>}{notice&&<Alert severity="success" sx={{my:2}}>{notice}</Alert>}
     {mode==="list"&&<>
       {report&&<div className="purchase-summary"><Paper><span>Posted purchases</span><b>{money(report.summary.purchase_total)}</b></Paper><Paper><span>Paid</span><b>{money(report.summary.paid_total)}</b></Paper><Paper><span>Outstanding</span><b>{money(report.summary.outstanding_total)}</b></Paper><Paper><span>Documents</span><b>{report.summary.invoice_count}</b></Paper></div>}
@@ -118,7 +124,7 @@ export default function PurchaseManagement(){
     </>}
     {(mode==="form"||mode==="edit")&&<Paper component="form" onSubmit={saveDraft} className="purchase-form">
       <Stack flexWrap="wrap" useFlexGap direction="row" justifyContent="space-between" alignItems="center"><Typography variant="h5">{activePurchaseId?"Edit purchase draft":"New purchase draft"}</Typography><Button type="button" onClick={()=>{if(id)setMode("detail");else{setEditingId(null);setMode("list");}}}>Cancel</Button></Stack>
-      <Stack useFlexGap direction={{xs:"column",md:"row"}} spacing={2}><TextField required select label="Receiving store" value={storeId} onChange={e=>setStoreId(e.target.value)} fullWidth disabled={Boolean(id)}>{stores.map(store=><MenuItem key={store.id} value={String(store.id)}>{store.name}</MenuItem>)}</TextField><SupplierSearch value={supplier} onSelect={setSupplier} label="Supplier"/></Stack>
+      <Typography variant="h6">Supplier & invoice details</Typography><Stack useFlexGap direction={{xs:"column",md:"row"}} spacing={2}><TextField required select label="Receiving store" value={storeId} onChange={e=>setStoreId(e.target.value)} fullWidth disabled={Boolean(id)}>{stores.map(store=><MenuItem key={store.id} value={String(store.id)}>{store.name}</MenuItem>)}</TextField><SupplierSearch value={supplier} onSelect={setSupplier} label="Supplier / Party"/></Stack>
       <Stack className="ui-form-grid" useFlexGap direction={{xs:"column",md:"row"}} spacing={2}><TextField required type="date" label="Invoice date" slotProps={{inputLabel:{shrink:true}}} value={form.invoiceDate} onChange={e=>setForm({...form,invoiceDate:e.target.value})}/><TextField type="date" label="Due date" slotProps={{inputLabel:{shrink:true}}} value={form.dueDate} onChange={e=>setForm({...form,dueDate:e.target.value})}/><TextField label="Supplier invoice number" value={form.supplierInvoiceNumber} onChange={e=>setForm({...form,supplierInvoiceNumber:e.target.value})} fullWidth/></Stack>
       <Typography variant="subtitle1">{nonGstMode?'Non-GST — Tiles Wala Simple Billing':simpleLayout?'Tiles Wala Simple Billing':'GST Billing'} · Payment status: unposted</Typography>
       {billingSettings.loading&&<Typography>Loading billing settings…</Typography>}
@@ -127,43 +133,24 @@ export default function PurchaseManagement(){
         <MenuItem value="GST_TAX_INVOICE">GST Tax Invoice — supplier charged GST</MenuItem><MenuItem value="BILL_OF_SUPPLY">Bill of Supply — registered supplier, no GST charged</MenuItem><MenuItem value="NON_GST_COMMERCIAL">Non-GST commercial invoice — no GST charged</MenuItem>
       </TextField>}
       {form.supplierDocumentType==='BILL_OF_SUPPLY'&&<TextField required label="Supplier Bill of Supply basis" value={form.supplierTaxReason||''} onChange={e=>setForm(f=>({...f,supplierTaxReason:e.target.value}))} helperText="Record the exemption or composition declaration on the supplier document."/>}
-      <Typography variant="h6">Purchase items</Typography>
-      <Autocomplete
-        options={products}
-        filterOptions={options=>options}
-        inputValue={productSearch}
-        value={null}
-        getOptionLabel={product=>`${product.sku||''} · ${product.name||''}`.trim()}
-        isOptionEqualToValue={(a,b)=>String(a.id)===String(b.id)}
-        onInputChange={(_,value,reason)=>{if(reason==='input'||reason==='clear')setProductSearch(value);}}
-        onChange={(_,product)=>{
-          if(!product)return;
-          const emptyIndex=form.items.findIndex(item=>!item.productId);
-          const index=emptyIndex<0?form.items.length:emptyIndex;
-          if(emptyIndex<0)setForm(current=>({...current,items:[...current.items,emptyLine()]}));
-          chooseProduct(index,product.id);
-          setProductSearch('');
-        }}
-        noOptionsText={productSearch.trim()?'No matching products':'Type to search products'}
-        renderInput={params=><TextField {...params} label="Search product catalog by SKU, name, brand, collection, size or finish"/>}
-      />
-      {form.items.map((line,index)=><Paper variant="outlined" className={`purchase-line${simpleLayout?" purchase-line-simple":""}`} key={index}><Stack className="ui-form-grid" useFlexGap direction={{xs:"column",md:"row"}} spacing={1} alignItems="flex-start">
+      <Paper variant="outlined" className="purchase-items-entry"><div className={`purchase-invoice-columns${simpleLayout?" purchase-simple-columns":""}`} aria-label="Purchase item columns">{(simpleLayout?["ITEMS","QTY","UNIT","PRICE/ITEM (₹)","AMOUNT (₹)",""]:["ITEMS","QTY","UNIT","PRICE/ITEM (₹)","DISCOUNT","TAX","AMOUNT (₹)",""]).map((label,index)=><span key={`${label}-${index}`}>{label}</span>)}</div>
+      {form.items.map((line,index)=><Paper variant="outlined" className={`purchase-line${simpleLayout?" purchase-line-simple":""}`} key={index}><Stack className="purchase-item-fields" useFlexGap direction="row" spacing={1} alignItems="center">
         <Autocomplete className="purchase-product" options={[...products,...form.items.map(item=>item.product).filter(Boolean)].filter((p,i,all)=>all.findIndex(x=>String(x.id)===String(p.id))===i)} filterOptions={options=>options} value={line.product||null} isOptionEqualToValue={(a,b)=>String(a.id)===String(b.id)} getOptionLabel={p=>`${p.sku||''} · ${p.name||''}`.trim()} onInputChange={(_,value,reason)=>{if(reason==='input')setProductSearch(value);}} onChange={(_,product)=>{if(product)chooseProduct(index,product.id);}} renderInput={params=><TextField {...params} label="Product" required/>}/>
 
         {(simpleLayout?[['quantity','Quantity','0.0001'],['unit','Unit'],['unitPrice','Rate','0.0001']]:[['quantity','Quantity','0.0001'],['unit','Unit'],['unitPrice','Rate','0.0001'],['discountAmount','Discount','0.01'],['taxRate','Tax %','0.0001']]).map(([name,label,step])=>{const Field=name==='quantity'?QuantityField:TextField;return name==='unit'?<TextField key="unit" slotProps={{inputLabel:{shrink:true},select:{displayEmpty:true}}} select label="Unit" value={line.unitId} onChange={e=>chooseUnit(index,e.target.value)} sx={{minWidth:140}} required><MenuItem value="">Unit</MenuItem>{line.product&&[{id:line.product.base_unit_id,name:line.product.base_unit_name},...(line.conversions||[]).map(item=>({id:item.unit_id,name:item.name}))].map(unit=><MenuItem key={unit.id} value={String(unit.id)}>{unit.name}</MenuItem>)}</TextField>:<Field key={name} required={name!=="discountAmount"} type="number" label={label} value={line[name]} onChange={e=>updateLine(index,name,e.target.value)} slotProps={{htmlInput:{min:name==="taxRate"||name==="discountAmount"?"0":"0.0001",step,max:name==="taxRate"?"100":undefined}}} sx={{minWidth:110}}/>;})}
         <Typography className="purchase-line-total"><span>Line Total</span><strong>{money(simpleLayout?nonGstLineTotal(line):Math.max(0,Number(nonGstLineTotal(line))-Number(line.discountAmount||0))*(1+Number(line.taxRate||0)/100))}</strong></Typography>
-        <Button color="error" onClick={()=>setForm(current=>({...current,items:current.items.filter((_,i)=>i!==index)}))} disabled={form.items.length===1}>Remove</Button>
+        <Button color="error" onClick={()=>setForm(current=>({...current,items:current.items.filter((_,i)=>i!==index)}))}>Remove</Button>
       </Stack>{!simpleLayout&&<Typography variant="caption" color="text.secondary">{line.product?`HSN ${line.product.hsn_code||"not configured"} · ${line.product.brand||""} ${line.product.collection||""}`:"Product and tax values will be saved as invoice snapshots."}</Typography>}</Paper>)}
-      <Button type="button" onClick={()=>setForm({...form,items:[...form.items,emptyLine()]})}>Add product</Button>
+      {form.items.every(line=>!line.productId)&&<Typography color="text.secondary" textAlign="center" sx={{py:1}}>No items added yet</Typography>}<Button type="button" fullWidth variant="outlined" className="invoice-add-item" onClick={()=>setAddItemsOpen(true)}>+ Add Item</Button></Paper>
       {(supplierHasGST||form.items.some(line=>Number(line.taxRate)>0))&&<Paper variant="outlined" sx={{p:2}}><Typography variant="h6">Supplier tax details</Typography>
         <Typography variant="body2" sx={{mb:2}}>Match the actual supplier invoice. Tax details are retained outside the simplified item table.</Typography>
         {simpleLayout&&form.items.map((line,index)=>line.productId&&<TextField key={index} required type="number" label={`GST rate for ${line.product?.name||'line '+(index+1)}`} value={line.taxRate} onChange={e=>updateLine(index,'taxRate',e.target.value)} slotProps={{htmlInput:{min:0,max:100,step:'0.0001'}}} sx={{m:1}}/>)}
         {supplierHasGST&&<Stack spacing={2} sx={{mt:2}}><TextField select required label="GST breakup on supplier invoice" value={form.supplierTaxJurisdiction||''} onChange={e=>setForm(f=>({...f,supplierTaxJurisdiction:e.target.value}))}><MenuItem value="INTRA_STATE">CGST + SGST</MenuItem><MenuItem value="INTER_STATE">IGST</MenuItem></TextField><TextField label="GST total on supplier invoice" type="number" value={form.declaredTaxTotal??''} onChange={e=>setForm(f=>({...f,declaredTaxTotal:e.target.value}))} helperText="Required before posting. Must match the calculated GST." slotProps={{htmlInput:{min:0,step:'0.01'}}}/></Stack>}
       </Paper>}
       {!nonGstMode&&form.supplierDocumentType&&form.supplierDocumentType!=='GST_TAX_INVOICE'&&<Alert severity="info">This records a supplier document without GST charged. Changing billing mode never clears existing tax amounts.</Alert>}
-      {!simpleLayout&&<Stack className="ui-form-grid" useFlexGap direction={{xs:"column",md:"row"}} spacing={2}><TextField type="number" label="Freight" value={form.freightAmount} onChange={e=>setForm({...form,freightAmount:e.target.value})} slotProps={{htmlInput:{min:0,step:"0.01"}}}/><TextField type="number" label="Additional charges" value={form.additionalCharges} onChange={e=>setForm({...form,additionalCharges:e.target.value})} slotProps={{htmlInput:{min:0,step:"0.01"}}}/><TextField type="number" label="Round-off (+/-)" value={form.roundOff} onChange={e=>setForm({...form,roundOff:e.target.value})} slotProps={{htmlInput:{step:"0.01"}}}/><TextField label="Notes" value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})} fullWidth/></Stack>}
-      {simpleLayout&&<TextField label="Notes" value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})}/> }
+      {!simpleLayout&&<Stack className="ui-form-grid" useFlexGap direction={{xs:"column",md:"row"}} spacing={2}><TextField type="number" label="Freight" value={form.freightAmount} onChange={e=>setForm({...form,freightAmount:e.target.value})} slotProps={{htmlInput:{min:0,step:"0.01"}}}/><TextField type="number" label="Additional charges" value={form.additionalCharges} onChange={e=>setForm({...form,additionalCharges:e.target.value})} slotProps={{htmlInput:{min:0,step:"0.01"}}}/><TextField type="number" label="Round-off (+/-)" value={form.roundOff} onChange={e=>setForm({...form,roundOff:e.target.value})} slotProps={{htmlInput:{step:"0.01"}}}/></Stack>}
       <Paper className="purchase-totals"><Typography><span>Subtotal</span><strong>{money(displayTotals.subtotal)}</strong></Typography>{!simpleLayout&&<Typography><span>Discount</span><strong>{money(displayTotals.discount)}</strong></Typography>}{!nonGstMode&&<><Typography><span>Taxable</span><strong>{money(displayTotals.taxable)}</strong></Typography><Typography><span>Tax</span><strong>{money(displayTotals.tax)}</strong></Typography></>}{!simpleLayout&&<Typography>Freight & charges: {money(Number(form.freightAmount||0)+Number(form.additionalCharges||0))}</Typography>}{supplierHasGST&&<><Typography><span>CGST</span><strong>{money(taxBreakup.cgst)}</strong></Typography><Typography><span>SGST</span><strong>{money(taxBreakup.sgst)}</strong></Typography><Typography><span>IGST</span><strong>{money(taxBreakup.igst)}</strong></Typography></>}<Typography variant="h6"><span>Grand total</span><strong>{money(displayTotals.total)}</strong></Typography></Paper>
+      <TextField label="Notes" value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})} multiline minRows={2} fullWidth/>
       <Button type="submit" variant="contained" disabled={saving||!settingsReady||!storeId||!supplier||(!activePurchaseId&&!form.supplierDocumentType)}>{saving?"Saving…":activePurchaseId?"Update purchase draft":"Save draft"}</Button>
     </Paper>}
     {mode==="detail"&&purchase&&<><Paper className={`purchase-details${purchase.invoice_layout?" purchase-screen-details":""}`}>
@@ -183,5 +170,6 @@ export default function PurchaseManagement(){
     <Dialog open={historyOpen} onClose={()=>setHistoryOpen(false)} fullWidth maxWidth="md"><DialogTitle>Purchase revision history</DialogTitle><DialogContent>{history.length?history.map(entry=><Paper variant="outlined" sx={{p:1.5,my:1}} key={entry.id}><Typography fontWeight={700}>{entry.action} · {entry.changed_by||"System"}</Typography><Typography color="text.secondary">{new Date(entry.created_at).toLocaleString()}</Typography>{entry.before_data&&<Typography variant="body2">Previous: {JSON.stringify(entry.before_data)}</Typography>}{entry.after_data&&<Typography variant="body2">Updated: {JSON.stringify(entry.after_data)}</Typography>}</Paper>):<Typography>No recorded revisions or audit events.</Typography>}</DialogContent><DialogActions><Button onClick={()=>setHistoryOpen(false)}>Close</Button></DialogActions></Dialog>
     <Dialog open={Boolean(editPreview)} onClose={()=>setEditPreview(null)} fullWidth maxWidth="sm"><DialogTitle>Review Purchase Changes</DialogTitle><DialogContent>{editPreview&&<><Typography>Purchase {editPreview.invoiceNumber}</Typography><Alert severity={editPreview.eligible?"info":"warning"} sx={{my:2}}>{editPreview.reason}</Alert>{editPreview.blockers?.map(item=><Typography key={item} sx={{mb:1}}>• {item}</Typography>)}{editPreview.status==="posted"&&<Typography sx={{mt:2}}>Use a supplier credit/debit note or a controlled accounting correction after reconciling stock, payments, returns and GST.</Typography>}</>}</DialogContent><DialogActions><Button onClick={()=>setEditPreview(null)}>Close</Button></DialogActions></Dialog>
     <Dialog open={Boolean(cancelPreview)} onClose={()=>!saving&&setCancelPreview(null)} fullWidth maxWidth="sm"><DialogTitle>Delete Duplicate Invoice — cancellation review</DialogTitle><DialogContent>{cancelPreview&&<><Typography>Purchase Invoice: <b>{cancelPreview.invoiceNumber}</b></Typography><Typography>Amount: {money(cancelPreview.amount)} · Paid: {money(cancelPreview.paidAmount)} · Outstanding: {money(cancelPreview.outstanding)}</Typography><Typography sx={{mt:1}}>Stock impact: {cancelPreview.stockImpact}</Typography><Typography>Payment impact: {cancelPreview.paymentImpact}</Typography><Typography>Supplier ledger impact: {cancelPreview.ledgerImpact}</Typography><Typography>Returns: {cancelPreview.returnImpact}</Typography>{cancelPreview.otherSupplierInvoices&&<Alert severity="info" sx={{my:1}}>Other posted invoices exist for this supplier. Verify the correct invoice independently before confirming.</Alert>}<TextField select fullWidth sx={{mt:2}} label="Cancellation reason" value={cancelReason} onChange={e=>setCancelReason(e.target.value)}><MenuItem value="Duplicate Purchase">Duplicate Purchase</MenuItem><MenuItem value="Wrong Supplier">Wrong Supplier</MenuItem><MenuItem value="Incorrect Quantity">Incorrect Quantity</MenuItem><MenuItem value="Incorrect Price">Incorrect Price</MenuItem><MenuItem value="Supplier Invoice Cancelled">Supplier Invoice Cancelled</MenuItem></TextField>{cancelPreview.blockers?.length>0&&<Alert severity="warning" sx={{mt:2}}>{cancelPreview.blockers.join(" ")}</Alert>}{cancelPreview.eligible&&<Alert severity="info" sx={{mt:2}}>This will preserve the purchase record and mark it reversed. The internal reference will not be reused.</Alert>}</>}</DialogContent><DialogActions><Button disabled={saving} onClick={()=>setCancelPreview(null)}>Cancel</Button><Button variant="contained" color="error" disabled={saving||!cancelPreview?.eligible} onClick={confirmDuplicateCancellation}>Confirm Duplicate Cancellation</Button></DialogActions></Dialog>
-  </Box>;
+    <AddItemsModal open={addItemsOpen} onClose={()=>setAddItemsOpen(false)} onAdd={addProductsToPurchase} onCreate={()=>window.open('/products?createForBilling=1','_blank')} storeId={storeId} direction="purchase" existingItems={form.items}/>
+    </Box>;
 }

@@ -4,6 +4,7 @@ import { Avatar, Badge, Box, Button, Collapse, Drawer, IconButton, List, ListIte
 import MenuIcon from '@mui/icons-material/Menu';
 import ChevronLeft from '@mui/icons-material/ChevronLeft';
 import ExpandMore from '@mui/icons-material/ExpandMore';
+import Add from '@mui/icons-material/Add';
 import Logout from '@mui/icons-material/Logout';
 import { useAuth } from '../../context/AuthContext';
 import { useStores } from '../../context/StoreContext';
@@ -26,6 +27,7 @@ export default function BusinessShell({ children }) {
   const [accountAnchor, setAccountAnchor] = useState(null);
   const role = user?.userType?.toLowerCase();
   const groups = navigationForRole(role,user?.permissions);
+  const canCreateSalesInvoice = groups.some(group => group.items.some(item => item.path === '/billing'));
   const useAccountNameWithoutStore = ['dealer', 'tile mistire'].includes(role);
   const activeGroup = groups.find((group) => group.items.some((item) => isActiveItem(item, pathname)))?.label;
   const rail = !overlay && (!desktop || collapsed);
@@ -46,11 +48,12 @@ export default function BusinessShell({ children }) {
   const sidebar = (compact = false, instance) => <>
     <Box className="sidebar-brand">
       <img src="/images/brandlogo.png" alt="A & A Home Decor" />
-      {!compact && <Box><Typography fontWeight={750}>Tiles Wala</Typography><Typography variant="caption" color="text.secondary">A & A HOME DECOR</Typography></Box>}
+      {!compact && <Box className="sidebar-brand-copy"><Typography fontWeight={750}>{stores.find(store=>String(store.id)===String(selectedStoreId))?.name||'Tiles Wala'}</Typography><Typography variant="caption">{stores.find(store=>String(store.id)===String(selectedStoreId))?.phone||'A & A HOME DECOR'}</Typography></Box>}
       {!compact && <IconButton className="drawer-close" aria-label="Close navigation" onClick={() => setMobileOpen(false)}><ChevronLeft /></IconButton>}
     </Box>
+    {!compact&&canCreateSalesInvoice&&<Button component={Link} to="/billing" state={{createNewInvoice:true}} className="sidebar-create-invoice" fullWidth startIcon={<Add/>}>Create Sales Invoice</Button>}
     <Box component="nav" aria-label="Main navigation" className="sidebar-navigation">
-      {groups.map((group, index) => <Box key={group.label} className="nav-group">
+      {groups.map((group, index) => <Box key={group.label} className={`nav-group${activeGroup===group.label?' nav-group-active':''}`}>
         {!compact ? <Button className="nav-group-heading" fullWidth aria-expanded={!closedGroups[group.label]} aria-controls={`nav-${instance}-group-${index}`} onClick={() => setClosedGroups((current) => ({ ...current, [group.label]: !current[group.label] }))} endIcon={<ExpandMore sx={{ transform: closedGroups[group.label] ? 'rotate(-90deg)' : 'none' }} />}>
           {group.label}
         </Button> : <Box className="nav-group-divider" />}

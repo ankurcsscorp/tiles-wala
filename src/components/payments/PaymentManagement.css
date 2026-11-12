@@ -2,3 +2,6 @@
 @media(max-width:760px){.payment-page{padding:18px 12px 34px}.payment-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.payment-panel{padding:12px}.payment-heading{align-items:flex-start;gap:12px}}
 .payment-summary b{font-variant-numeric:tabular-nums}.payment-filters{align-items:flex-start;gap:12px}.payment-filters>.MuiFormControl-root{min-width:150px}
 @media(max-width:600px){.payment-filters>.MuiFormControl-root{width:100%;min-width:0}.payment-summary{gap:10px}.payment-summary b{font-size:1.1rem;overflow-wrap:anywhere}}
+.payment-heading.MuiStack-root{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;column-gap:24px;row-gap:12px}.payment-heading>.MuiBox-root{min-width:0}.payment-heading>.MuiStack-root{justify-content:flex-end;align-self:center;flex-wrap:nowrap!important;white-space:nowrap}.payment-heading>.MuiStack-root .MuiButton-root{min-height:48px;padding-inline:20px}
+@media(max-width:900px){.payment-heading.MuiStack-root{grid-template-columns:minmax(0,1fr);align-items:start}.payment-heading>.MuiStack-root{justify-content:flex-start;flex-wrap:wrap!important;white-space:normal}}
+.payment-heading>.MuiStack-root{column-gap:12px!important}

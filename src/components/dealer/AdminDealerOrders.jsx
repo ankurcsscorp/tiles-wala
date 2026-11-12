@@ -4,7 +4,7 @@ import {
   Accordion, AccordionDetails, AccordionSummary, Alert, Autocomplete, Box, Button, Card, Chip,
   CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControl,
   IconButton, InputLabel, MenuItem, Select, Stack, Step, StepLabel, Stepper, Table, TableBody, TableCell,
-  TableHead, TableRow, TextField, Typography, useMediaQuery, useTheme,
+  TableHead, TableRow, TableSortLabel, TextField, Typography, useMediaQuery, useTheme,
 } from '@mui/material';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import ContentCopy from '@mui/icons-material/ContentCopy';
@@ -77,6 +77,7 @@ export default function AdminDealerOrders() {
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const [summary, setSummary] = useState(emptySummary);
   const [orders, setOrders] = useState([]);
+  const [orderDateDirection, setOrderDateDirection] = useState('desc');
   const [stores, setStores] = useState([]);
   const [filters, setFilters] = useState({ q: '', status: '', storeId: '', from: '', to: '' });
   const [loading, setLoading] = useState(true);
@@ -346,6 +347,11 @@ export default function AdminDealerOrders() {
     ['Ready to Dispatch', 'ready_to_dispatch', 'READY_TO_DISPATCH'], ['Shipped', 'shipped', 'SHIPPED'],
     ['Delivered', 'delivered', 'DELIVERED'], ['Cancelled Orders', 'cancelled', 'CANCELLED'],
   ];
+  const sortedOrders = useMemo(() => [...orders].sort((a, b) => {
+    const dateA = Date.parse(a.created_at) || 0;
+    const dateB = Date.parse(b.created_at) || 0;
+    return (dateA - dateB) * (orderDateDirection === 'asc' ? 1 : -1) || Number(a.id) - Number(b.id);
+  }), [orders, orderDateDirection]);
   const currentItems = useMemo(() => detail?.items || [], [detail]);
   const primaryAction = getPrimaryOrderAction(detail);
   const received = moneyReceived(detail?.payments);
@@ -377,17 +383,17 @@ export default function AdminDealerOrders() {
         {summaryCards.map(([name, key, status]) => <Card key={key + name} onClick={() => setFilters(current => ({ ...current, status }))} sx={{ p: 1.75, cursor: 'pointer', border: '1px solid', borderColor: filters.status === status && status ? 'primary.main' : 'divider' }}><Typography variant="body2" color="text.secondary">{name}</Typography><Typography variant="h5" fontWeight={800}>{summary[key] || 0}</Typography></Card>)}
       </Box>
       <Card variant="outlined" sx={{ p: 1.5, mb: 2 }}>
-        <Stack direction={{ xs: 'column', lg: 'row' }} spacing={1.25} sx={{ alignItems: 'center' }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0,1fr)', sm: 'repeat(2,minmax(0,1fr))', lg: 'minmax(280px,2fr) minmax(170px,1fr) minmax(160px,1fr) repeat(2,minmax(145px,.8fr))' }, gap: 1.25, alignItems: 'center' }}>
           <TextField fullWidth size="small" label="Search order, dealer, product, or product ID" value={filters.q} onChange={event => setFilters(current => ({ ...current, q: event.target.value }))} slotProps={{ input: { startAdornment: <Search color="action" sx={{ mr: 1 }} /> } }} />
-          <FormControl size="small" sx={{ minWidth: { lg: 195 }, width: { xs: '100%', lg: 'auto' } }}><InputLabel>Status</InputLabel><Select label="Status" value={filters.status} onChange={event => setFilters(current => ({ ...current, status: event.target.value }))}><MenuItem value="">All statuses</MenuItem>{statuses.map(status => <MenuItem key={status} value={status}>{label(status)}</MenuItem>)}</Select></FormControl>
-          <FormControl size="small" sx={{ minWidth: { lg: 175 }, width: { xs: '100%', lg: 'auto' } }}><InputLabel>Store</InputLabel><Select label="Store" value={filters.storeId} onChange={event => setFilters(current => ({ ...current, storeId: event.target.value }))}><MenuItem value="">All stores</MenuItem>{stores.map(store => <MenuItem key={store.id} value={String(store.id)}>{store.name}</MenuItem>)}</Select></FormControl>
-          <TextField size="small" type="date" label="From" slotProps={{ inputLabel: { shrink: true } }} value={filters.from} onChange={event => setFilters(current => ({ ...current, from: event.target.value }))} />
-          <TextField size="small" type="date" label="To" slotProps={{ inputLabel: { shrink: true } }} value={filters.to} onChange={event => setFilters(current => ({ ...current, to: event.target.value }))} />
-        </Stack>
+          <FormControl fullWidth size="small" sx={{ minWidth: 0 }}><InputLabel>Status</InputLabel><Select label="Status" value={filters.status} onChange={event => setFilters(current => ({ ...current, status: event.target.value }))}><MenuItem value="">All statuses</MenuItem>{statuses.map(status => <MenuItem key={status} value={status}>{label(status)}</MenuItem>)}</Select></FormControl>
+          <FormControl fullWidth size="small" sx={{ minWidth: 0 }}><InputLabel>Store</InputLabel><Select label="Store" value={filters.storeId} onChange={event => setFilters(current => ({ ...current, storeId: event.target.value }))}><MenuItem value="">All stores</MenuItem>{stores.map(store => <MenuItem key={store.id} value={String(store.id)}>{store.name}</MenuItem>)}</Select></FormControl>
+          <TextField fullWidth size="small" type="date" label="From" slotProps={{ inputLabel: { shrink: true } }} value={filters.from} onChange={event => setFilters(current => ({ ...current, from: event.target.value }))} />
+          <TextField fullWidth size="small" type="date" label="To" slotProps={{ inputLabel: { shrink: true } }} value={filters.to} onChange={event => setFilters(current => ({ ...current, to: event.target.value }))} />
+        </Box>
       </Card>
       <Card variant="outlined" sx={{ overflowX: 'auto' }}>
         {loading ? <Box sx={{ p: 5, textAlign: 'center' }}><CircularProgress /></Box> : !orders.length ? <Box sx={{ p: 5, textAlign: 'center' }}><Typography color="text.secondary">No dealer orders match these filters.</Typography></Box> :
-          <Table size="small" sx={{ minWidth: 1050 }}><TableHead><TableRow>{['Order Number', 'Dealer', 'Store', 'Order Date', 'Products', 'Order Amount', 'Payment', 'Payment Status', 'Order Status', 'Actions'].map(item => <TableCell key={item} sx={{ fontWeight: 750, whiteSpace: 'nowrap' }}>{item}</TableCell>)}</TableRow></TableHead><TableBody>{orders.map(order => <TableRow hover key={order.id}><TableCell><b>{order.order_number}</b></TableCell><TableCell>{order.business_name}<Typography variant="caption" display="block" color="text.secondary">{order.contact_name || order.mobile}</Typography></TableCell><TableCell>{order.store_name}</TableCell><TableCell>{new Date(order.created_at).toLocaleDateString()}</TableCell><TableCell>{order.product_count}</TableCell><TableCell>{formatINR(order.grand_total)}</TableCell><TableCell>{order.payment_method === 'CASH_ON_DELIVERY' ? 'Cash on Delivery' : order.payment_method || '—'}</TableCell><TableCell><Chip size="small" label={label(order.payment_status)} /></TableCell><TableCell><Chip size="small" color={order.status === 'PENDING_REVIEW' ? 'warning' : order.status === 'DELIVERED' || order.status === 'COMPLETED' ? 'success' : 'default'} label={orderStatusLabel(order)} /></TableCell><TableCell><Button size="small" onClick={() => open(order.id)}>Review</Button></TableCell></TableRow>)}</TableBody></Table>}
+          <Table size="small" sx={{ minWidth: 1050 }}><TableHead><TableRow>{['Order Number', 'Dealer', 'Store', 'Order Date', 'Products', 'Order Amount', 'Payment', 'Payment Status', 'Order Status', 'Actions'].map(item => <TableCell key={item} sortDirection={item==='Order Date'?orderDateDirection:false} sx={{ fontWeight: 750, whiteSpace: 'nowrap' }}>{item==='Order Date'?<TableSortLabel active direction={orderDateDirection} onClick={()=>setOrderDateDirection(current=>current==='asc'?'desc':'asc')}>Order Date</TableSortLabel>:item}</TableCell>)}</TableRow></TableHead><TableBody>{sortedOrders.map(order => <TableRow hover key={order.id}><TableCell><b>{order.order_number}</b></TableCell><TableCell>{order.business_name}<Typography variant="caption" display="block" color="text.secondary">{order.contact_name || order.mobile}</Typography></TableCell><TableCell>{order.store_name}</TableCell><TableCell>{new Date(order.created_at).toLocaleDateString()}</TableCell><TableCell>{order.product_count}</TableCell><TableCell>{formatINR(order.grand_total)}</TableCell><TableCell>{order.payment_method === 'CASH_ON_DELIVERY' ? 'Cash on Delivery' : order.payment_method || '—'}</TableCell><TableCell><Chip size="small" label={label(order.payment_status)} /></TableCell><TableCell><Chip size="small" color={order.status === 'PENDING_REVIEW' ? 'warning' : order.status === 'DELIVERED' || order.status === 'COMPLETED' ? 'success' : 'default'} label={orderStatusLabel(order)} /></TableCell><TableCell><Button size="small" onClick={() => open(order.id)}>Review</Button></TableCell></TableRow>)}</TableBody></Table>}
       </Card>
 
       <Dialog open={Boolean(detail || detailLoading)} onClose={() => { if (!busy) { setDetail(null); setQuote(null); } }} fullWidth maxWidth="md" fullScreen={fullScreen}>

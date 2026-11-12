@@ -19,23 +19,6 @@ const featuredCollections = collection.map((item) => ({
   featured_key: String(item.id),
 }));
 
-const preloadImage = (src) =>
-  new Promise((resolve) => {
-    const image = new window.Image();
-    const timeoutId = window.setTimeout(() => finish(false), 20000);
-    const finish = (loaded) => {
-      window.clearTimeout(timeoutId);
-      image.onload = null;
-      image.onerror = null;
-      resolve(loaded);
-    };
-
-    image.onload = () => finish(true);
-    image.onerror = () => finish(false);
-    image.src = src;
-    if (image.complete) finish(image.naturalWidth > 0);
-  });
-
 const CollectionImage = ({ src, alt, className, frameClassName }) => {
   const imageRef = useRef(null);
   const [imageState, setImageState] = useState({ src: null, status: "loading" });
@@ -158,9 +141,6 @@ const NewCollection = () => {
   const [selectedImages, setSelectedImages] = useState([]);
   const [editingItem, setEditingItem] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [imagesLoaded, setImagesLoaded] = useState(false);
-  const [imageLoadError, setImageLoadError] = useState(false);
-  const [imageRetryKey, setImageRetryKey] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -225,29 +205,6 @@ const NewCollection = () => {
       isMounted = false;
     };
   }, []);
-
-  useEffect(() => {
-    let isMounted = true;
-    const primaryImages = [
-      ...new Set(
-        collections
-          .flatMap((item) => item.images ?? [])
-          .filter((imageUrl) => typeof imageUrl === "string" && imageUrl.length > 0)
-      ),
-    ];
-
-    setImagesLoaded(false);
-    setImageLoadError(false);
-    Promise.all(primaryImages.map(preloadImage)).then((results) => {
-      if (!isMounted) return;
-      setImageLoadError(results.some((loaded) => !loaded));
-      setImagesLoaded(true);
-    });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [collections, imageRetryKey]);
 
   const handleFieldChange = (event) => {
     const { name, value } = event.target;
@@ -406,25 +363,12 @@ const NewCollection = () => {
     setSelectedImages((current) => current.filter((_, index) => index !== imageIndex));
   };
 
-  if (isLoading || !imagesLoaded) {
+  if (isLoading) {
     return (
       <main className="collection-page collection-page-loading" aria-busy="true">
         <div className="collection-page-loader" role="status">
           <span className="collection-page-spinner" aria-hidden="true" />
-          <p>Loading the collection and product images…</p>
-        </div>
-      </main>
-    );
-  }
-
-  if (imageLoadError) {
-    return (
-      <main className="collection-page collection-page-loading">
-        <div className="collection-image-load-error" role="alert">
-          <p>Some product images could not be loaded. Check your connection and try again.</p>
-          <button type="button" onClick={() => setImageRetryKey((key) => key + 1)}>
-            Retry loading images
-          </button>
+          <p>Loading the collection…</p>
         </div>
       </main>
     );

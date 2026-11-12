@@ -23,47 +23,11 @@ const savedCollection = {
   featured_key: null,
 };
 
-const originalImage = window.Image;
-let pendingImages;
-let autoCompleteImages;
-let failImages;
-
 beforeEach(() => {
-  pendingImages = [];
-  autoCompleteImages = true;
-  failImages = false;
-  window.Image = class {
-    constructor() {
-      this.complete = false;
-      this.naturalWidth = 0;
-      this.onload = null;
-      this.onerror = null;
-    }
-
-    set src(value) {
-      this.source = value;
-      pendingImages.push(this);
-      if (autoCompleteImages) {
-        Promise.resolve().then(() => {
-          if (failImages) {
-            this.onerror?.();
-          } else {
-            this.complete = true;
-            this.naturalWidth = 100;
-            this.onload?.();
-          }
-        });
-      }
-    }
-  };
   api.get.mockResolvedValue({ data: [savedCollection] });
   api.post.mockResolvedValue({ data: savedCollection });
   api.put.mockResolvedValue({ status: 200, data: savedCollection });
   useAuth.mockReturnValue({ user: null });
-});
-
-afterEach(() => {
-  window.Image = originalImage;
 });
 
 const renderCollection = () =>
@@ -97,44 +61,20 @@ test("shows an image loader until the product image is ready", async () => {
   expect(image).toHaveClass("is-loaded");
 });
 
-test("blocks the page with a full-page loader until the gallery images load", async () => {
-  autoCompleteImages = false;
+test("shows the gallery without waiting for every product image", async () => {
   renderCollection();
-
-  expect(screen.getByRole("status")).toHaveTextContent(
-    "Loading the collection and product images"
-  );
-  const expectedImageRequests = new Set([
-    ...featuredCollections.flatMap((item) => item.images),
-    ...savedCollection.images,
-  ]).size;
-  await waitFor(() => {
-    expect(pendingImages.length).toBeGreaterThanOrEqual(expectedImageRequests * 2 - 1);
-  });
-
-  pendingImages.forEach((image) => {
-    image.complete = true;
-    image.naturalWidth = 100;
-    image.onload?.();
-  });
 
   expect(await screen.findByRole("heading", { name: "Calacatta Gold" })).toBeInTheDocument();
   expect(screen.queryByRole("status")).not.toBeInTheDocument();
 });
 
-test("shows a page-level retry action if an image fails to load", async () => {
-  failImages = true;
+test("keeps the gallery available and shows a fallback when a product image fails", async () => {
   renderCollection();
 
-  expect(await screen.findByRole("alert")).toHaveTextContent(
-    "Some product images could not be loaded"
-  );
-  expect(screen.queryByText("Image unavailable")).not.toBeInTheDocument();
-
-  failImages = false;
-  fireEvent.click(screen.getByRole("button", { name: "Retry loading images" }));
-
-  expect(await screen.findByRole("heading", { name: "Calacatta Gold" })).toBeInTheDocument();
+  const image = await screen.findByAltText("Calacatta Gold tile design");
+  fireEvent.error(image);
+  expect(await screen.findByText("Image unavailable")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Calacatta Gold" })).toBeInTheDocument();
 });
 
 test("shows the collection upload form to admins", async () => {

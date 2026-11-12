@@ -10,7 +10,6 @@ export default function CustomerSearch({ value, onSelect, onAddNew, label = "Cus
   const [options, setOptions] = useState([]);
   const [loading, setLoading] = useState(false);
   useEffect(() => {
-    if (query.trim().length < 2) { setOptions([]); return undefined; }
     let active = true;
     const timer = setTimeout(async () => {
       setLoading(true);
@@ -25,7 +24,7 @@ export default function CustomerSearch({ value, onSelect, onAddNew, label = "Cus
       getOptionLabel={(customer) => customer ? `${customer.name}${customer.phone ? ` · ${customer.phone}` : ""}` : ""}
       isOptionEqualToValue={(a,b) => String(a.id) === String(b.id)} onInputChange={(_, next) => setQuery(next)} onChange={(_, next) => onSelect?.(next)}
       renderInput={(params) => <TextField {...params} label={label} placeholder="Search name or mobile" />}
-      noOptionsText={query.trim().length < 2 ? "Type at least 2 characters" : "No matching customers"} />
+      noOptionsText={query.trim() ? "No matching customers" : "No customers found"} />
     {onAddNew && <Button variant="outlined" disabled={disabled} onClick={onAddNew} sx={{ minWidth: { sm: 150 } }}>Add customer</Button>}
   </Stack>;
 }
